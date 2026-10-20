@@ -139,6 +139,13 @@
       tooltip: {
         trigger: 'axis', confine: true,
         textStyle: { fontSize: 11 },
+        // 吨级数值加千分位，避免 tooltip 里出现 103330 这种长串
+        valueFormatter: function (v) {
+          if (v === null || v === undefined || isNaN(v)) return '—';
+          var p = String(Math.round(v * 1000) / 1000).split('.');
+          p[0] = p[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+          return p.join('.');
+        },
         axisPointer: { type: 'line', lineStyle: { color: '#cbd5e1', width: 1 } }
       },
       legend: {
@@ -158,7 +165,7 @@
           };
         })
       },
-      grid: { left: 54, right: 20, top: 54, bottom: 32 },
+      grid: { left: 62, right: 20, top: 54, bottom: 32 },
       xAxis: {
         type: 'category', data: axis, boundaryGap: false,
         axisLine: { lineStyle: { color: '#d5dbe6' } },
@@ -217,7 +224,16 @@
         splitLine: { lineStyle: { color: '#eef1f6' } },
         axisLine: { show: false },
         axisTick: { show: false },
-        axisLabel: { fontSize: 9, color: '#94a3b8' }
+        axisLabel: {
+          fontSize: 9, color: '#94a3b8',
+          // 吨级绝对量位数多（如 103,330），统一加千分位；小数按实际值裁剪，不补 0
+          formatter: function (v) {
+            if (v === null || v === undefined || isNaN(v)) return '';
+            var p = String(Math.round(v * 1000) / 1000).split('.');
+            p[0] = p[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+            return p.join('.');
+          }
+        }
       },
       series: (function () {
         var ech = series.map(function (s) {
@@ -267,9 +283,12 @@
   }
 
   /* ---------------- 图下指标条 + 下载按钮（表外 / 分品种表需，仿汾渭卡片） ---------------- */
-  // 图下小表专用数值格式：固定 2 位小数 + 千分位（与 Excel 口径一致）
+  // 图下小表专用数值格式：千分位；小数位按量级自适应
+  // （吨级绝对量 >=100 取整，避免出现 103,330.00 这种多余小数；小数值保留 2 位，与 Excel 口径一致）
   function fmtCardNum(v) {
-    var s = (Math.round(v * 100) / 100).toFixed(2);
+    var abs = Math.abs(v);
+    var nd = abs >= 100 ? 0 : 2;
+    var s = v.toFixed(nd);
     var p = s.split('.');
     p[0] = p[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
     return p.join('.');

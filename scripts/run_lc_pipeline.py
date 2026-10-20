@@ -31,7 +31,7 @@ SHOT = os.path.join(ROOT, 'scripts', 'shot_lithium.py')
 DEPLOY = os.path.join(ROOT, 'deploy_repo.py')
 SEND = r'C:\Users\Administrator\iron-ore-charts\scripts\send_to_wechat.py'
 STATE = os.path.join(ROOT, 'shot', '.lc_inv_state.json')
-IMG = os.path.join(ROOT, 'shot', '碳酸锂下游_长图.png')
+IMG = os.path.join(ROOT, 'shot', '碳酸锂库存_长图.png')
 REPO = 'lithium-charts'
 DS_ID = 'lc_inv'
 
@@ -111,7 +111,7 @@ def main():
     # 3) push
     if not args.no_push:
         env = dict(os.environ)
-        env['COMMIT_MSG'] = 'data(lc_inv): 碳酸锂下游（钢联）库存 更新至 %s' % as_of
+        env['COMMIT_MSG'] = 'data(lc_inv): 碳酸锂库存（钢联）更新至 %s' % as_of
         run([PY, DEPLOY, REPO] + PUSH_FILES, cwd=ROOT, env=env)
     else:
         print('[skip] 不推公网')
@@ -120,8 +120,8 @@ def main():
     if not args.no_shot:
         run([PY, SHOT, '--ds', DS_ID, '--out', IMG,
              '--width', '1080', '--height', '4200', '--scale', '2',
-             '--title', '碳酸锂 · 下游周度库存',
-             '--subtitle', '数据截至 %s｜我的钢铁网（Mysteel）周度调研｜单位：万吨' % as_of],
+             '--title', '碳酸锂库存',
+             '--subtitle', '数据截至 %s｜我的钢铁网（Mysteel）周度调研｜单位：吨' % as_of],
             cwd=ROOT)
     else:
         print('[skip] 不出图')

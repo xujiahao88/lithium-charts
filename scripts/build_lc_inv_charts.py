@@ -12,7 +12,7 @@ build_lc_inv_charts.py — 「碳酸锂库存（钢联）」数据集生成器�
   注意：同工作簿的「正极 / 表需 / 电芯 / 碳酸锂产量」等 sheet 是 **SMM** 口径，
         与本数据集（钢联）不是同一来源，刻意不纳入。
 
-产出 lithium-charts 一个 dataset「碳酸锂库存（钢联）」(id=lc_inv)：
+产出 lithium-charts 一个 dataset「碳酸锂库存」(id=lc_inv)：
   · 横轴 = MM-DD 季节性轴（出现过的周度日期并集，按 (月,日) 升序）
   · 每个指标按年份叠线（最新年红色、前一年蓝…），与钢材站同构；
     2026 年起步只有 1 年 → 单条红线；明年起自动变成 2 年对比，无需改代码。
@@ -20,7 +20,7 @@ build_lc_inv_charts.py — 「碳酸锂库存（钢联）」数据集生成器�
   · 组2「库存结构（派生）」：3 张 —— 各环节占总量比重（%），由组1 四列算出
   · 汇总表：4 个绝对量指标的 本期/上期/环比/较年初/较年初%
 
-单位换算：源表为「吨」，本站统一显示「万吨」（÷10000，保留 2 位），图上口径已在 note 注明。
+单位：源表即「吨」，本站直接按吨呈现（不换算、取整），图上口径已在 note 注明；占比图另按 % 显示。
 
 用法：
   python scripts/build_lc_inv_charts.py            # 生成 data/lc_inv.json + data.js + meta.json
@@ -39,10 +39,11 @@ SRC = r'C:\Users\Administrator\Nutstore\1\我的坚果云\碳酸锂\下游周度
 SHEET = '钢联'
 
 DS_ID = 'lc_inv'
-DS_NAME = '碳酸锂库存（钢联）'
+DS_NAME = '碳酸锂库存'
 
 MAX_YEARS = 5
-SCALE = 1e-4          # 吨 → 万吨
+SCALE = 1.0           # 单位＝吨（源表原值，不做换算）
+ND = 0                # 吨级取整（源值本身即整数吨）
 
 # ---- 指标定义：(源表列号, 显示名, 简称) ----
 # 列号固定（B=1 .. E=4，0-based），但下方 parse() 会按表头名重新定位并校验。
@@ -80,6 +81,13 @@ def clean_num(v):
             return None
         return float(v)
     return None
+
+
+def rnd(v, nd=ND):
+    """按 nd 位四舍五入；nd=0 时返回 int（避免 JSON 里出现 103330.0）"""
+    if v is None:
+        return None
+    return int(round(v)) if nd == 0 else round(v, nd)
 
 
 def series_style(i, n):
@@ -201,13 +209,13 @@ def build_dataset():
         years = years[-MAX_YEARS:]
     n = len(years)
 
-    def seasonal(series_map, scale=1.0):
+    def seasonal(series_map, scale=1.0, nd=2):
         byyear = {}
         for d in dates:
             v = series_map.get(d)
             if v is None or d.year not in years:
                 continue
-            byyear.setdefault(d.year, {})['%02d-%02d' % (d.month, d.day)] = round(v * scale, 2)
+            byyear.setdefault(d.year, {})['%02d-%02d' % (d.month, d.day)] = rnd(v * scale, nd)
         return byyear
 
     charts = []
@@ -230,7 +238,7 @@ def build_dataset():
     # —— 组1：碳酸锂库存（周）——
     for col, name, short in ITEMS:
         add_chart('lc_inv-%s' % short, name + '（周）', '碳酸锂库存（周）',
-                  seasonal(data[col], SCALE))
+                  seasonal(data[col], SCALE, ND))
 
     # —— 组2：库存结构（派生）——
     ratio_maps = {}
@@ -243,7 +251,7 @@ def build_dataset():
         ratio_maps[col] = m
     for col, name in RATIOS:
         add_chart('lc_inv-%s' % name.replace('库存占比', '占比'), name + '（%）',
-                  '库存结构（派生）', seasonal(ratio_maps[col]))
+                  '库存结构（派生）', seasonal(ratio_maps[col], 1.0, 2))
 
     # —— 汇总表（仅 4 个绝对量指标；占比不混入，单位不同）——
     last = dates[-1]
@@ -260,6 +268,16 @@ def build_dataset():
             if d <= target and (best is None or d > best[0]):
                 best = (d, v)
         return best[1] if best else None
+
+    def date_at(series_map, target):
+        """target 当天或之前最近一期真实有数据的日子。
+        源表偶有缺周（如 2026-10-09），此时「上期」必须显示实际取到的日期，
+        否则标签写 10-09、数值却来自 10-02，会误导环比口径。"""
+        best = None
+        for d in series_map:
+            if d <= target and (best is None or d > best):
+                best = d
+        return best
 
     def val_first(series_map, year):
         for d in sorted(series_map):
@@ -280,21 +298,24 @@ def build_dataset():
                           if (c is not None and ys not in (None, 0)) else None),
         })
 
-    g = lambda v: (None if v is None else round(v * SCALE, 2))
+    g = lambda v: rnd(v * SCALE)
     rows = {
         '本期': [g(x['cur']) for x in cur],
         '上期': [g(x['prev']) for x in cur],
         '环比': [(None if (x['cur'] is None or x['prev'] is None)
-                  else round((x['cur'] - x['prev']) * SCALE, 2)) for x in cur],
+                  else rnd((x['cur'] - x['prev']) * SCALE)) for x in cur],
         '较年初': [g(x['vs_ys']) for x in cur],
         '较年初%': [x['vs_ys_pct'] for x in cur],
     }
+    # 上期基准：源表若缺周，则回退到最近的真实期，并同步用于标签显示
+    prev_actual = date_at(data[1], prev) or prev
+
     summary = {
         'columns': columns, 'rows': rows,
         'rowOrder': ['本期', '上期', '环比', '较年初', '较年初%'],
         'currentWeek': last.strftime('%Y-%m-%d'),
-        'previousWeek': prev.strftime('%Y-%m-%d'),
-        'unit': '万吨',
+        'previousWeek': prev_actual.strftime('%Y-%m-%d'),
+        'unit': '吨',
     }
 
     # —— 卡片指标条（本期 / 上期 / 环比 / 较年初）——
@@ -312,8 +333,8 @@ def build_dataset():
             'labels': ['本期', '上期', '环比', '较年初'],
             'kinds': ['val', 'val', 'delta', 'delta'],
             'values': [g(c), g(p),
-                       (None if p is None else round((c - p) * SCALE, 2)),
-                       (None if ys is None else round((c - ys) * SCALE, 2))],
+                       (None if p is None else rnd(c - p)),
+                       (None if ys is None else rnd(c - ys))],
         }
 
     # —— 口径备注 ——
@@ -329,10 +350,14 @@ def build_dataset():
         a, b = dates[i - 1], dates[i]
         if all(data[c].get(a) == data[c].get(b) for c, _, _ in ITEMS):
             dup.append('%s 与 %s' % (a.strftime('%m-%d'), b.strftime('%m-%d')))
-    note_parts = ['单位：万吨（源表为吨，已 ÷10000）',
+    note_parts = ['单位：吨（源表原值，未做换算）',
                   '口径：Mysteel 周度库存调研，样本 207 家（冶炼厂 74 / 贸易商 61 / 材料厂及终端 72），货权口径']
     if missing:
         note_parts.append('源表缺周：' + '、'.join(missing))
+    span = (last - prev_actual).days
+    if span != 7:
+        note_parts.append('本期「环比」实为 %s→%s 共 %d 天变动（非单周）'
+                          % (prev_actual.strftime('%m-%d'), last.strftime('%m-%d'), span))
     if dup:
         note_parts.append('源表两期数值完全相同：' + '、'.join(dup) + '（按源表原样呈现，未插补）')
     note = '｜'.join(note_parts)
