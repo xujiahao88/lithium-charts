@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>碳酸锂 · 下游周度图谱</title>
+<link rel="stylesheet" href="assets/style.css?v=2">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-inner">
+    <div class="brand">
+      <h1>碳酸锂 · 下游周度图谱</h1>
+      <p class="sub" id="sub">加载中…</p>
+    </div>
+    <div class="toolbar">
+      <div class="year-box" id="yearToggles"></div>
+      <label class="ctl chk"><input type="checkbox" id="optConnect" checked><span>连断点</span></label>
+      <label class="ctl chk"><input type="checkbox" id="optZero"><span>Y轴含0</span></label>
+      <label class="ctl chk"><input type="checkbox" id="optSync"><span>同行同Y</span></label>
+      <button class="btn" id="btnExpand">全部展开</button>
+      <button class="btn" id="btnTop">回到顶部</button>
+    </div>
+  </div>
+  <nav class="tabs" id="tabs"></nav>
+</header>
+
+<main id="main">
+  <div class="loading" id="loading">正在加载数据…</div>
+</main>
+
+<footer class="foot">
+  <span id="footNote"></span>
+  <span class="disc">数据来源：我的钢铁网（Mysteel）｜内容由 AI 整理，仅供参考，不构成投资建议</span>
+</footer>
+
+<script src="assets/vendor/echarts.min.js"></script>
+<script src="data/data.js?v=2"></script>
+<script src="assets/app.js?v=2"></script>
+</body>
+</html>

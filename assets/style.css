@@ -1,0 +1,456 @@
+:root {
+  --bg: #f4f6fa;
+  --panel: #ffffff;
+  --line: #e3e8f0;
+  --ink: #1f2937;
+  --ink2: #6b7280;
+  --brand: #2f5597;
+  --brand-soft: #eaf1fb;
+  --radius: 10px;
+  --shadow: 0 1px 3px rgba(16, 24, 40, .06), 0 1px 2px rgba(16, 24, 40, .04);
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+               "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ---------- 顶栏 ---------- */
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: var(--panel);
+  border-bottom: 1px solid var(--line);
+  box-shadow: var(--shadow);
+}
+.topbar-inner {
+  max-width: 1920px;
+  margin: 0 auto;
+  padding: 12px 20px 8px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+.brand h1 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 650;
+  letter-spacing: .3px;
+  color: var(--brand);
+}
+.brand .sub {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--ink2);
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.year-box { display: flex; gap: 6px; flex-wrap: wrap; }
+
+.ctl {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: var(--ink2);
+  cursor: pointer;
+  user-select: none;
+}
+.ctl input { cursor: pointer; }
+
+.btn {
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--ink2);
+  font-size: 12px;
+  padding: 5px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all .15s;
+}
+.btn:hover { border-color: var(--brand); color: var(--brand); background: var(--brand-soft); }
+
+/* 年份开关 */
+.ytoggle {
+  border: 1px solid var(--line);
+  background: var(--panel);
+  border-radius: 999px;
+  padding: 3px 11px;
+  font-size: 12px;
+  color: var(--ink2);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  transition: all .15s;
+}
+.ytoggle .dot {
+  width: 9px; height: 9px; border-radius: 50%;
+  background: currentColor; opacity: .25;
+}
+.ytoggle.on { color: var(--ink); border-color: #cbd5e1; background: #f8fafc; }
+.ytoggle.on .dot { opacity: 1; }
+
+/* ---------- Tab ---------- */
+.tabs {
+  max-width: 1920px;
+  margin: 0 auto;
+  padding: 0 20px;
+  display: flex;
+  gap: 4px;
+}
+.tab {
+  border: none;
+  background: transparent;
+  padding: 9px 16px;
+  font-size: 13px;
+  color: var(--ink2);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all .15s;
+  font-family: inherit;
+}
+.tab:hover { color: var(--brand); }
+.tab.active {
+  color: var(--brand);
+  border-bottom-color: var(--brand);
+  font-weight: 600;
+}
+.tab .cnt {
+  font-size: 11px;
+  color: #94a3b8;
+  margin-left: 5px;
+}
+
+/* ---------- 主体 ---------- */
+main {
+  max-width: 1920px;
+  margin: 0 auto;
+  padding: 18px 20px 40px;
+}
+.loading { padding: 60px; text-align: center; color: var(--ink2); }
+
+/* 嵌入式数据集（建材直供）：iframe 原样承载静态看板页，高度由 app.js 自适应 */
+.embed-frame {
+  display: block;
+  width: 100%;
+  min-height: 1400px;
+  border: 0;
+  background: #f5f5f5;
+  border-radius: 6px;
+}
+main[data-ds="zhigong"] { padding: 14px 20px 24px; }
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(430px, 1fr));
+  gap: 14px;
+}
+
+.card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+.card-head {
+  padding: 9px 14px;
+  border-bottom: 1px solid var(--line);
+  font-size: 13px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  background: linear-gradient(180deg, #fcfdff, #f7f9fc);
+}
+.card-head .tag {
+  font-size: 11px;
+  font-weight: 400;
+  color: #94a3b8;
+}
+.chart {
+  width: 100%;
+  height: 236px;
+}
+.card.wide { grid-column: 1 / -1; }
+.card.wide .chart { height: 320px; }
+
+/* ---------- 图下指标条 + 下载按钮（表外 / 分品种表需，对齐汾渭卡片样式） ---------- */
+.chart-data { padding: 0 8px; }
+.chart-data table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-variant-numeric: tabular-nums;
+}
+.chart-data th,
+.chart-data td {
+  padding: 3px 2px;
+  text-align: center;
+  white-space: nowrap;
+  border-top: 1px solid #eef1f6;
+  border-right: 1px solid #eef1f6;
+  font-size: 10.5px;
+}
+.chart-data th:last-child,
+.chart-data td:last-child { border-right: none; }
+.chart-data th {
+  color: #94a3b8;
+  font-weight: 500;
+  background: #f8fafc;
+}
+.chart-data td { color: #334155; font-weight: 600; }
+.chart-data td.up { color: #b91c1c; background: #fee2e2; }
+.chart-data td.down { color: #15803d; background: #dcfce7; }
+.card-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 10px 7px;
+  font-size: 11px;
+  color: #94a3b8;
+}
+.card-foot .dl {
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--ink2);
+  font-size: 11px;
+  padding: 2px 9px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all .15s;
+}
+.card-foot .dl:hover {
+  border-color: var(--brand);
+  color: var(--brand);
+  background: var(--brand-soft);
+}
+
+/* ---------- 页脚 ---------- */
+.foot {
+  max-width: 1920px;
+  margin: 0 auto;
+  padding: 16px 20px 30px;
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: #94a3b8;
+  border-top: 1px solid var(--line);
+}
+.foot .disc { color: #b0b8c4; }
+
+/* ---------- 截图模式（参考汾渭：隐藏标题栏/tab栏，只留数据内容） ---------- */
+body.shot .topbar,
+body.shot .foot { display: none !important; }
+body.shot main { padding-top: 10px; }
+
+@media (max-width: 900px) {
+  .grid { grid-template-columns: 1fr; }
+  .topbar-inner { flex-direction: column; }
+}
+
+/* ---------- 汇总表（在图表网格之前） ---------- */
+.summary {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  margin: 16px auto 0;
+  max-width: 1920px;
+  overflow: hidden;
+}
+.summary-head {
+  padding: 10px 16px;
+  background: linear-gradient(180deg, #eaf1fb 0%, #f5f8fd 100%);
+  border-bottom: 1px solid var(--line);
+  font-size: 13px;
+  color: var(--ink);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.summary-head strong { color: var(--brand); font-weight: 600; }
+.summary-dates { color: var(--ink2); font-size: 12px; font-weight: normal; }
+.summary-scroll {
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+.summary-note {
+  margin: 8px 2px 0;
+  padding: 6px 10px;
+  font-size: 11px;
+  line-height: 1.5;
+  color: #6b7280;
+  background: #f8fafc;
+  border-left: 3px solid #cbd5e1;
+  border-radius: 0 4px 4px 0;
+}
+.summary-table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+/* 全球发运专用：按截图（1998px 长图）量出的每列像素宽度，整体刚好等于截图宽度。
+   容器宽度不够时由 .summary-scroll 横向滚动，列宽比例与长图完全一致。 */
+.summary-table.global-fit {
+  width: auto;
+  min-width: 100%;
+  table-layout: fixed;
+  font-size: 12px;
+}
+.summary-table th,
+.summary-table td {
+  padding: 6px 7px;
+  border-right: 1px solid #eef1f6;
+  border-bottom: 1px solid #eef1f6;
+  text-align: right;
+  vertical-align: middle;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.summary-table thead th {
+  white-space: normal;
+  word-break: break-all;
+  line-height: 1.25;
+  text-overflow: clip;
+}
+.summary-table .row-label,
+.summary-table td.row-label {
+  background: #f8fafc;
+  color: #475569;
+  font-weight: 600;
+  text-align: left;
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  border-right: 2px solid var(--line);
+  padding: 7px 10px;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  min-width: 120px;
+}
+.summary-table .grp-row th {
+  background: var(--brand);
+  color: #fff;
+  font-weight: 600;
+  font-size: 12px;
+  padding: 8px 10px;
+  text-align: center;
+  border-right: 1px solid #3d6ab2;
+}
+.summary-table .grp-row th.row-label {
+  background: var(--brand);
+  color: #fff;
+  border-right: 1px solid #3d6ab2;
+}
+
+/* 差值行（环比/较年初/累计同比/累计增幅%）— 浅灰背景 + 标签字色淡，
+   与"值行"（本期/上期）一眼能区分 */
+.summary-table tr.r-delta {
+  background: #f6f8fb;
+}
+.summary-table tr.r-delta .row-label,
+.summary-table tr.r-delta td.row-label {
+  background: #f6f8fb;
+  color: #94a3b8;
+  font-weight: 500;
+}
+.summary-table .lab-row th {
+  background: var(--brand-soft);
+  color: #1e3a5f;
+  font-weight: 600;
+  padding: 7px 12px;
+  text-align: center;
+}
+.summary-table tbody tr:nth-child(even) td:not(.row-label) {
+  background: #fafbfc;
+}
+.summary-table tbody tr:hover td:not(.row-label) {
+  background: #f0f4ff;
+}
+.summary-table td.up {
+  color: #b91c1c;
+  background: #fee2e2 !important;
+  font-weight: 600;
+}
+.summary-table td.down {
+  color: #15803d;
+  background: #dcfce7 !important;
+  font-weight: 600;
+}
+.summary-table td.na { color: #cbd5e1; }
+.summary-table tbody tr.r-累计同比 td.row-label,
+.summary-table tbody tr.r-累计增幅% td.row-label {
+  color: var(--brand);
+}
+
+/* ---------- 区块（钢材站：对齐汾渭 5 列网格，图高对齐汾渭 常态236/展开320） ---------- */
+.rgroup { margin: 22px 0 8px; }
+.rgroup-title {
+  font-size: 15px; font-weight: 700; color: #1f2937;
+  margin: 0 0 10px; padding-left: 10px;
+  border-left: 4px solid #c00000; line-height: 1.2;
+}
+.grid.rgrid { grid-template-columns: repeat(5, 1fr); }
+/* 一列三张（PSI 热卷排产，用户要求） */
+.grid.rgrid.cols3 { grid-template-columns: repeat(3, 1fr); }
+/* 一列四张（带钢，用户要求） */
+.grid.rgrid.cols4 { grid-template-columns: repeat(4, 1fr); }
+/* 整行一张 / 一行两张（排序柱状图布局） */
+.grid.rgrid.cols1 { grid-template-columns: 1fr !important; }
+.grid.rgrid.cols2 { grid-template-columns: repeat(2, 1fr) !important; }
+/* 带钢 / 出港：季节图整体更高一些（用户 2026-09-13：要高一些，不是宽一些） */
+main[data-ds="daiguan"] .chart,
+main[data-ds="chugang"] .chart { height: 300px; }
+main[data-ds="daiguan"] .card.wide .chart,
+main[data-ds="chugang"] .card.wide .chart { height: 400px; }
+/* 出口-分品种 / 出口-分国别：线图+排序柱状图，图更高 */
+main[data-ds="export_variety"] .chart,
+main[data-ds="export_country"] .chart { height: 340px; }
+main[data-ds="export_variety"] .card.wide .chart,
+main[data-ds="export_country"] .card.wide .chart { height: 460px; }
+/* 热卷排产（中联钢）：对齐出口季节图高度（用户 2026-09-14 要求） */
+main[data-ds="psi_plan"] .chart { height: 340px; }
+main[data-ds="psi_plan"] .card.wide .chart { height: 460px; }
+/* 钢厂日接单：日频 300+ 点的季节叠加，图加高到与出口/排产一致 */
+main[data-ds="mill_order"] .chart { height: 340px; }
+main[data-ds="mill_order"] .card.wide .chart { height: 460px; }
+/* 表外（非五大材）/ 分品种表需 / 分品种库存：一行三张，图太扁 → 对齐接单季节图高度（用户 2026-09-28 要求） */
+main[data-ds="biaowai"] .chart,
+main[data-ds="variety_demand"] .chart,
+main[data-ds="variety_inventory"] .chart { height: 340px; }
+main[data-ds="biaowai"] .card.wide .chart,
+main[data-ds="variety_demand"] .card.wide .chart,
+main[data-ds="variety_inventory"] .card.wide .chart { height: 460px; }
+@media (max-width: 1700px) { .grid.rgrid { grid-template-columns: repeat(4, 1fr); } }
+@media (max-width: 1360px) { .grid.rgrid { grid-template-columns: repeat(3, 1fr); } .grid.rgrid.cols3, .grid.rgrid.cols4 { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 1000px) { .grid.rgrid, .grid.rgrid.cols3, .grid.rgrid.cols4 { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 680px)  { .grid.rgrid { grid-template-columns: 1fr; } }
