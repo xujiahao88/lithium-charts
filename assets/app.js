@@ -20,18 +20,11 @@
   // 各数据集「区块内一行几张图」（默认 5 张，见 style.css .grid.rgrid）
   var GRID_COLS = { psi_plan: 3, daiguan: 3, chugang: 3, export_variety: 3, export_country: 3, mill_order: 3, biaowai: 3, variety_demand: 3, variety_inventory: 3, lc_inv: 4 };
 
-  // 嵌入式数据集：内容是一个独立的静态看板页（非 ECharts），用 iframe 原样嵌入，
-  // 以保持其自身格式完全不变。刻意不写进 data.js / meta.json，
-  // 这样任何 build_*.py 重建数据时都不会把它冲掉。
-  // src 相对站点根目录；asOf 仅供顶部信息栏显示（更新直供数据时同步改这一处）。
-  var EMBED_DATASETS = [
-    { id: 'zhigong', name: '建材直供', src: 'zhigong/index.html', asOf: '10-19' }
-  ];
+  // 嵌入式数据集：本站（碳酸锂）暂无
+  var EMBED_DATASETS = [];
 
-  // 外链数据集：tab 上显示一个入口，点击在新窗口打开外部网址（本机不托管页面）
-  var LINK_DATASETS = [
-    { id: 'cisa_plate', name: '钢协板材产量', url: 'https://cisa-plate-output.app.workbuddy.host/', asOf: '08-31' }
-  ];
+  // 外链数据集：本站（碳酸锂）暂无
+  var LINK_DATASETS = [];
 
   // 横坐标按「1月…12月」显示（每月 1 号一个刻度）的数据集
   var MONTH_AXIS = { daiguan: 1, chugang: 1, hanguan: 1, juanluo_luowen: 1, juanluo_rejuan: 1, mill_order: 1, biaowai: 1, variety_demand: 1, variety_inventory: 1, lc_inv: 1 };
