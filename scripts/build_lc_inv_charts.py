@@ -255,7 +255,11 @@ def build_dataset():
 
     # —— 汇总表（仅 4 个绝对量指标；占比不混入，单位不同）——
     last = dates[-1]
-    prev = last - datetime.timedelta(days=7)
+    # 「上期」＝上一期**实际观测值**，不能按 last−7 天推算：
+    # 源表日期记的是下载日（多为周五），与 Mysteel 调研周标签（周三）相差 1~2 天，
+    # 一旦本期落在周三、上期落在周五，last−7 会越过上一期、回退到再上一期，
+    # 环比被放大成两周口径（2026-10-21 期实测踩坑：环比 −14,280 应为 −4,050）。
+    prev = dates[-2] if len(dates) > 1 else last - datetime.timedelta(days=7)
     year_start = None
     for d in dates:
         if d.year == last.year:
@@ -268,16 +272,6 @@ def build_dataset():
             if d <= target and (best is None or d > best[0]):
                 best = (d, v)
         return best[1] if best else None
-
-    def date_at(series_map, target):
-        """target 当天或之前最近一期真实有数据的日子。
-        源表偶有缺周（如 2026-10-09），此时「上期」必须显示实际取到的日期，
-        否则标签写 10-09、数值却来自 10-02，会误导环比口径。"""
-        best = None
-        for d in series_map:
-            if d <= target and (best is None or d > best):
-                best = d
-        return best
 
     def val_first(series_map, year):
         for d in sorted(series_map):
@@ -307,8 +301,7 @@ def build_dataset():
         '较年初': [g(x['vs_ys']) for x in cur],
         '较年初%': [x['vs_ys_pct'] for x in cur],
     }
-    # 上期基准：源表若缺周，则回退到最近的真实期，并同步用于标签显示
-    prev_actual = date_at(data[1], prev) or prev
+    prev_actual = prev
 
     summary = {
         'columns': columns, 'rows': rows,
