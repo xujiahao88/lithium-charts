@@ -355,7 +355,10 @@ def build_dataset():
     if missing:
         note_parts.append('源表缺周：' + '、'.join(missing))
     span = (last - prev_actual).days
-    if span != 7:
+    # 只在「跨期超过一周」时提示：说明源表缺周、环比不是单周口径。
+    # （源表日期记的是下载日/周五，与 Mysteel 调研周标签（周三）相差 1~2 天，
+    #   span 偶尔 < 7 属正常，不能当成缺周报警。）
+    if span > 7:
         note_parts.append('本期「环比」实为 %s→%s 共 %d 天变动（非单周）'
                           % (prev_actual.strftime('%m-%d'), last.strftime('%m-%d'), span))
     if dup:
