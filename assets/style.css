@@ -451,6 +451,8 @@ main[data-ds="biaowai"] .card.wide .chart,
 main[data-ds="variety_demand"] .card.wide .chart,
 main[data-ds="variety_inventory"] .card.wide .chart { height: 460px; }
 @media (max-width: 1700px) { .grid.rgrid { grid-template-columns: repeat(4, 1fr); } }
-@media (max-width: 1360px) { .grid.rgrid { grid-template-columns: repeat(3, 1fr); } .grid.rgrid.cols3, .grid.rgrid.cols4 { grid-template-columns: repeat(2, 1fr); } }
+/* 2026-10-21：一行三张的 tab（碳酸锂产量 / 动力电芯等）在 1360 断点不再降到 2 列，
+   而是保持 3 列到 1000px —— 否则笔记本窗口（≤1360）和长图截图（1080）都会塌成 2 列。 */
+@media (max-width: 1360px) { .grid.rgrid { grid-template-columns: repeat(3, 1fr); } .grid.rgrid.cols4 { grid-template-columns: repeat(2, 1fr); } }
 @media (max-width: 1000px) { .grid.rgrid, .grid.rgrid.cols3, .grid.rgrid.cols4 { grid-template-columns: repeat(2, 1fr); } }
-@media (max-width: 680px)  { .grid.rgrid { grid-template-columns: 1fr; } }
+@media (max-width: 680px)  { .grid.rgrid, .grid.rgrid.cols3, .grid.rgrid.cols4 { grid-template-columns: 1fr; } }

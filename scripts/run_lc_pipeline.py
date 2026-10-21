@@ -41,11 +41,16 @@ IMG = os.path.join(ROOT, 'shot', '碳酸锂库存_长图.png')
 IMG_DN = os.path.join(ROOT, 'shot', '碳酸锂下游_长图.png')
 
 # 下游三段（产量 / 正极 / 电芯）→ 拼成一张长图
+# 2026-10-21：用户要求「产量 / 电芯」一行三张。CSS 断点已放宽到 1000px，
+# 这里再把视口放宽到 1440（>1360 不触发塌列）并降 scale 到 1.5，
+# 输出仍是 2160px 宽，但每张卡从 330 → 440 CSS px，X 轴月份标签不再挤。
 DN_SEGS = [
-    ('lc_output',  '碳酸锂产量', 'shot/_dn_output.png',  2100),
-    ('lc_cathode', '正极材料',   'shot/_dn_cathode.png', 2200),
-    ('lc_cell',    '动力电芯',   'shot/_dn_cell.png',    1500),
+    ('lc_output',  '碳酸锂产量', 'shot/_dn_output.png',  1200),
+    ('lc_cathode', '正极材料',   'shot/_dn_cathode.png', 1400),
+    ('lc_cell',    '动力电芯',   'shot/_dn_cell.png',     800),
 ]
+DN_WIDTH = 1440
+DN_SCALE = 1.5
 REPO = 'lithium-charts'
 DS_ID = 'lc_inv'
 
@@ -162,7 +167,8 @@ def main():
         parts = []
         for ds_id, _name, out, h in DN_SEGS:
             run([PY, SHOT, '--ds', ds_id, '--out', os.path.join(ROOT, out),
-                 '--width', '1080', '--height', str(h), '--scale', '2'], cwd=ROOT)
+                 '--width', str(DN_WIDTH), '--height', str(h),
+                 '--scale', str(DN_SCALE)], cwd=ROOT)
             parts.append(os.path.join(ROOT, out))
         run([PY, STACK, '--out', IMG_DN, '--inputs'] + parts + ['--gap', '30'], cwd=ROOT)
 
