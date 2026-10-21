@@ -9,11 +9,12 @@ build（钢联 → lc_inv；SMM 三表 → lc_output / lc_cathode / lc_cell）
   → 发微信（当前打开的会话）
 
 注：4 个数据集每次都重建并推站（保证站点数据一致）；微信默认仍只发库存那张，
-    避免同一周连发多条。要发下游拼接图时加 --downstream。
+    避免同一周连发多条。要发下游图时加 --downstream（三张独立图，各带标题条）。
 
 用法：
   python scripts/run_lc_pipeline.py                 # 全链，默认发微信（只发库存图）
-  python scripts/run_lc_pipeline.py --downstream    # 另出「产量+正极+电芯」拼接长图并发送
+  python scripts/run_lc_pipeline.py --downstream    # 另出「产量 / 正极 / 电芯」三张独立图并发送
+  python scripts/run_lc_pipeline.py --downstream --stack   # 额外存一张合并图（不发）
   python scripts/run_lc_pipeline.py --no-send       # 只更新站点 + 出图
   python scripts/run_lc_pipeline.py --no-push       # 不推公网
   python scripts/run_lc_pipeline.py --no-shot       # 不出图
@@ -40,14 +41,13 @@ STATE = os.path.join(ROOT, 'shot', '.lc_inv_state.json')
 IMG = os.path.join(ROOT, 'shot', '碳酸锂库存_长图.png')
 IMG_DN = os.path.join(ROOT, 'shot', '碳酸锂下游_长图.png')
 
-# 下游三段（产量 / 正极 / 电芯）→ 拼成一张长图
-# 2026-10-21：用户要求「产量 / 电芯」一行三张。CSS 断点已放宽到 1000px，
-# 这里再把视口放宽到 1440（>1360 不触发塌列）并降 scale 到 1.5，
-# 输出仍是 2160px 宽，但每张卡从 330 → 440 CSS px，X 轴月份标签不再挤。
+# 下游三段（产量 / 正极 / 电芯）：默认各出**独立一张**（2026-10-21 用户要求「分成三张图」），
+# 分别带标题条，便于在微信里单张查看；加 --stack 才额外拼一张合并图存档。
+# 视口 1440（>1360 不触发塌列）+ scale 1.5 → 输出仍 2160px 宽，每张卡 440 CSS px。
 DN_SEGS = [
-    ('lc_output',  '碳酸锂产量', 'shot/_dn_output.png',  1200),
-    ('lc_cathode', '正极材料',   'shot/_dn_cathode.png', 1400),
-    ('lc_cell',    '动力电芯',   'shot/_dn_cell.png',     800),
+    ('lc_output',  '碳酸锂产量', 'shot/碳酸锂产量_长图.png',  1200, '吨',  '上海有色网（SMM）周度产量'),
+    ('lc_cathode', '正极材料',   'shot/正极材料_长图.png',    1400, '吨',  '上海有色网（SMM）周度产量与厂内库存'),
+    ('lc_cell',    '动力电芯',   'shot/动力电芯_长图.png',     800, 'GWh', '上海有色网（SMM）动力电芯周度产量'),
 ]
 DN_WIDTH = 1440
 DN_SCALE = 1.5
@@ -117,7 +117,9 @@ def main():
     ap.add_argument('--check-only', action='store_true')
     ap.add_argument('--force', action='store_true')
     ap.add_argument('--downstream', action='store_true',
-                    help='另出「产量+正极+电芯」拼接长图并发送')
+                    help='另出「产量 / 正极 / 电芯」三张独立长图并发送')
+    ap.add_argument('--stack', action='store_true',
+                    help='额外把三张下游图拼成一张合并图存档（不单独发送）')
     args = ap.parse_args()
 
     # 1) build：钢联库存 + SMM 三表
@@ -162,15 +164,22 @@ def main():
     else:
         print('[skip] 不出图')
 
-    # 4b) 下游拼接图（可选）
+    # 4b) 下游三张独立图（可选；--stack 另存一张合并图）
+    dn_imgs = []
     if args.downstream and not args.no_shot:
-        parts = []
-        for ds_id, _name, out, h in DN_SEGS:
-            run([PY, SHOT, '--ds', ds_id, '--out', os.path.join(ROOT, out),
+        for ds_id, name, out, h, unit, src in DN_SEGS:
+            p = os.path.join(ROOT, out)
+            d_asof = as_of_of(ds_id) or as_of
+            run([PY, SHOT, '--ds', ds_id, '--out', p,
                  '--width', str(DN_WIDTH), '--height', str(h),
-                 '--scale', str(DN_SCALE)], cwd=ROOT)
-            parts.append(os.path.join(ROOT, out))
-        run([PY, STACK, '--out', IMG_DN, '--inputs'] + parts + ['--gap', '30'], cwd=ROOT)
+                 '--scale', str(DN_SCALE),
+                 '--title', '碳酸锂产业链 · ' + name,
+                 '--subtitle', '数据截至 %s｜%s｜单位：%s' % (d_asof, src, unit)],
+                cwd=ROOT)
+            dn_imgs.append(p)
+        if args.stack:
+            run([PY, STACK, '--out', IMG_DN, '--inputs'] + dn_imgs + ['--gap', '30'],
+                cwd=ROOT)
 
     # 5) send
     if args.no_send:
@@ -180,9 +189,12 @@ def main():
             raise SystemExit('长图不存在：%s' % IMG)
         r = subprocess.run([PY, SEND, IMG, '--no-countdown'], cwd=ROOT)
         ok = (r.returncode == 0)
-        if ok and args.downstream and os.path.exists(IMG_DN):
-            r2 = subprocess.run([PY, SEND, IMG_DN, '--no-countdown'], cwd=ROOT)
-            ok = (r2.returncode == 0)
+        if ok and args.downstream:
+            for p in dn_imgs:
+                if not os.path.exists(p):
+                    raise SystemExit('下游图不存在：%s' % p)
+                r2 = subprocess.run([PY, SEND, p, '--no-countdown'], cwd=ROOT)
+                ok = ok and (r2.returncode == 0)
         if ok:
             st['sent_asOf'] = as_of
             st['sent_sig'] = sig

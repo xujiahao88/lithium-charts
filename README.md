@@ -84,12 +84,21 @@ lithium-charts/
 
 ```bash
 python scripts/run_lc_pipeline.py                 # 全链（4 个数据集都重建并推站，微信只发库存图）
-python scripts/run_lc_pipeline.py --downstream    # 另出「产量+正极+电芯」拼接长图并发送
+python scripts/run_lc_pipeline.py --downstream    # 另出「产量 / 正极 / 电芯」三张独立长图并逐张发送
+python scripts/run_lc_pipeline.py --downstream --stack   # 额外拼一张合并图存档（不单独发）
 python scripts/run_lc_pipeline.py --no-send       # 只更新站点与长图
 python scripts/run_lc_pipeline.py --no-push       # 不推公网
 python scripts/run_lc_pipeline.py --check-only    # 只试算，不落盘
 python scripts/run_lc_pipeline.py --force         # 忽略签名去重，强制重跑重发
 ```
+
+下游出图（2026-10-21 起改为三张独立图，各带标题条）：
+
+| 文件 | 尺寸 | 内容 |
+|---|---|---|
+| `shot\碳酸锂产量_长图.png` | 2160×1805 | 5 图（3+2） |
+| `shot\正极材料_长图.png` | 2160×1859 | 4 图（2+2） |
+| `shot\动力电芯_长图.png` | 2160×1264 | 3 图一行 |
 
 去重签名 = 4 个数据集 asOf 的组合（`lc_inv=…|lc_output=…|…`）。任一数据集换期都会重发，
 避免「只更新了 SMM 三表、库存没变」被误判为已发送。
