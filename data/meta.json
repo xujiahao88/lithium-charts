@@ -1,11 +1,29 @@
 {
- "updated": "2026-10-21T14:42:11",
+ "updated": "2026-10-21T16:07:00",
  "datasets": [
   {
    "id": "lc_inv",
    "name": "碳酸锂库存",
    "charts": 7,
    "asOf": "2026-10-21"
+  },
+  {
+   "id": "lc_output",
+   "name": "碳酸锂产量",
+   "charts": 5,
+   "asOf": "2026-10-15"
+  },
+  {
+   "id": "lc_cathode",
+   "name": "正极材料",
+   "charts": 4,
+   "asOf": "2026-10-15"
+  },
+  {
+   "id": "lc_cell",
+   "name": "动力电芯",
+   "charts": 3,
+   "asOf": "2026-10-16"
   }
  ]
 }

@@ -2,14 +2,18 @@
 """
 run_lc_pipeline.py — 碳酸锂下游周度「一条龙」
 
-build（解析钢联 → data/lc_inv.json + data.js + meta.json）
+build（钢联 → lc_inv；SMM 三表 → lc_output / lc_cathode / lc_cell）
   → bump index.html ?v=NN
   → 推 GitHub Pages（deploy_repo.py）
-  → Edge headless 出 2K 长图
+  → Edge headless 出 2K 长图（默认只出「碳酸锂库存」）
   → 发微信（当前打开的会话）
 
+注：4 个数据集每次都重建并推站（保证站点数据一致）；微信默认仍只发库存那张，
+    避免同一周连发多条。要发下游拼接图时加 --downstream。
+
 用法：
-  python scripts/run_lc_pipeline.py                 # 全链，默认发微信
+  python scripts/run_lc_pipeline.py                 # 全链，默认发微信（只发库存图）
+  python scripts/run_lc_pipeline.py --downstream    # 另出「产量+正极+电芯」拼接长图并发送
   python scripts/run_lc_pipeline.py --no-send       # 只更新站点 + 出图
   python scripts/run_lc_pipeline.py --no-push       # 不推公网
   python scripts/run_lc_pipeline.py --no-shot       # 不出图
@@ -27,11 +31,21 @@ import sys
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PY = sys.executable
 BUILD = os.path.join(ROOT, 'scripts', 'build_lc_inv_charts.py')
+BUILD2 = os.path.join(ROOT, 'scripts', 'build_lc_downstream_charts.py')
+STACK = os.path.join(ROOT, 'scripts', 'stack_images.py')
 SHOT = os.path.join(ROOT, 'scripts', 'shot_lithium.py')
 DEPLOY = os.path.join(ROOT, 'deploy_repo.py')
 SEND = r'C:\Users\Administrator\iron-ore-charts\scripts\send_to_wechat.py'
 STATE = os.path.join(ROOT, 'shot', '.lc_inv_state.json')
 IMG = os.path.join(ROOT, 'shot', '碳酸锂库存_长图.png')
+IMG_DN = os.path.join(ROOT, 'shot', '碳酸锂下游_长图.png')
+
+# 下游三段（产量 / 正极 / 电芯）→ 拼成一张长图
+DN_SEGS = [
+    ('lc_output',  '碳酸锂产量', 'shot/_dn_output.png',  2100),
+    ('lc_cathode', '正极材料',   'shot/_dn_cathode.png', 2200),
+    ('lc_cell',    '动力电芯',   'shot/_dn_cell.png',    1500),
+]
 REPO = 'lithium-charts'
 DS_ID = 'lc_inv'
 
@@ -39,7 +53,9 @@ PUSH_FILES = [
     'index.html', 'README.md',
     'assets/app.js', 'assets/style.css', 'assets/vendor/echarts.min.js',
     'data/data.js', 'data/meta.json', 'data/lc_inv.json',
-    'scripts/build_lc_inv_charts.py', 'scripts/shot_lithium.py',
+    'data/lc_output.json', 'data/lc_cathode.json', 'data/lc_cell.json',
+    'scripts/build_lc_inv_charts.py', 'scripts/build_lc_downstream_charts.py',
+    'scripts/shot_lithium.py', 'scripts/stack_images.py',
     'scripts/run_lc_pipeline.py',
 ]
 
@@ -52,14 +68,25 @@ def run(cmd, **kw):
     return r
 
 
-def read_as_of():
+def read_signature():
+    # 4 个数据集 asOf 的组合签名。任一换期都应重发 ——
+    # 否则只更新了 SMM 三表、lc_inv 没变时，会被判成「已发送」直接跳过。
     p = os.path.join(ROOT, 'data', 'meta.json')
     try:
         with open(p, encoding='utf-8') as f:
-            m = json.load(f)
-        for d in m.get('datasets', []):
-            if d.get('id') == DS_ID:
-                return d.get('asOf')
+            ds = json.load(f).get('datasets', [])
+        return '|'.join('%s=%s' % (d.get('id'), d.get('asOf')) for d in ds)
+    except Exception:
+        return None
+
+
+def as_of_of(ds_id):
+    p = os.path.join(ROOT, 'data', 'meta.json')
+    try:
+        with open(p, encoding='utf-8') as f:
+            for d in json.load(f).get('datasets', []):
+                if d.get('id') == ds_id:
+                    return d.get('asOf')
     except Exception:
         pass
     return None
@@ -84,16 +111,20 @@ def main():
     ap.add_argument('--no-shot', action='store_true')
     ap.add_argument('--check-only', action='store_true')
     ap.add_argument('--force', action='store_true')
+    ap.add_argument('--downstream', action='store_true',
+                    help='另出「产量+正极+电芯」拼接长图并发送')
     args = ap.parse_args()
 
-    # 1) build
-    bc = [PY, BUILD] + (['--check'] if args.check_only else [])
-    run(bc, cwd=ROOT)
+    # 1) build：钢联库存 + SMM 三表
+    run([PY, BUILD] + (['--check'] if args.check_only else []), cwd=ROOT)
+    run([PY, BUILD2] + (['--check'] if args.check_only else []), cwd=ROOT)
     if args.check_only:
         return
 
-    as_of = read_as_of()
-    print('\n📅 数据集 asOf =', as_of)
+    as_of = as_of_of(DS_ID)
+    sig = read_signature()
+    print('\n📅 asOf =', as_of)
+    print('🔖 签名 =', sig)
 
     st = {}
     if os.path.exists(STATE):
@@ -101,7 +132,7 @@ def main():
             st = json.load(open(STATE, encoding='utf-8'))
         except Exception:
             st = {}
-    if not args.force and st.get('sent_asOf') == as_of and not args.no_send:
+    if not args.force and sig and st.get('sent_sig') == sig and not args.no_send:
         print('⏭️ 该期（%s）已发送过，跳过。需重发请加 --force' % as_of)
         return
 
@@ -111,7 +142,7 @@ def main():
     # 3) push
     if not args.no_push:
         env = dict(os.environ)
-        env['COMMIT_MSG'] = 'data(lc_inv): 碳酸锂库存（钢联）更新至 %s' % as_of
+        env['COMMIT_MSG'] = 'data: 碳酸锂产业链数据更新（库存至 %s）' % as_of
         run([PY, DEPLOY, REPO] + PUSH_FILES, cwd=ROOT, env=env)
     else:
         print('[skip] 不推公网')
@@ -126,6 +157,15 @@ def main():
     else:
         print('[skip] 不出图')
 
+    # 4b) 下游拼接图（可选）
+    if args.downstream and not args.no_shot:
+        parts = []
+        for ds_id, _name, out, h in DN_SEGS:
+            run([PY, SHOT, '--ds', ds_id, '--out', os.path.join(ROOT, out),
+                 '--width', '1080', '--height', str(h), '--scale', '2'], cwd=ROOT)
+            parts.append(os.path.join(ROOT, out))
+        run([PY, STACK, '--out', IMG_DN, '--inputs'] + parts + ['--gap', '30'], cwd=ROOT)
+
     # 5) send
     if args.no_send:
         print('\n[skip] 不发微信（--no-send）')
@@ -133,8 +173,13 @@ def main():
         if not os.path.exists(IMG):
             raise SystemExit('长图不存在：%s' % IMG)
         r = subprocess.run([PY, SEND, IMG, '--no-countdown'], cwd=ROOT)
-        if r.returncode == 0:
+        ok = (r.returncode == 0)
+        if ok and args.downstream and os.path.exists(IMG_DN):
+            r2 = subprocess.run([PY, SEND, IMG_DN, '--no-countdown'], cwd=ROOT)
+            ok = (r2.returncode == 0)
+        if ok:
             st['sent_asOf'] = as_of
+            st['sent_sig'] = sig
             st['sentAt'] = datetime.datetime.now().isoformat(timespec='seconds')
             os.makedirs(os.path.dirname(STATE), exist_ok=True)
             json.dump(st, open(STATE, 'w', encoding='utf-8'), ensure_ascii=False, indent=1)

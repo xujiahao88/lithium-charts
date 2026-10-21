@@ -18,7 +18,7 @@
   };
 
   // 各数据集「区块内一行几张图」（默认 5 张，见 style.css .grid.rgrid）
-  var GRID_COLS = { psi_plan: 3, daiguan: 3, chugang: 3, export_variety: 3, export_country: 3, mill_order: 3, biaowai: 3, variety_demand: 3, variety_inventory: 3, lc_inv: 4 };
+  var GRID_COLS = { psi_plan: 3, daiguan: 3, chugang: 3, export_variety: 3, export_country: 3, mill_order: 3, biaowai: 3, variety_demand: 3, variety_inventory: 3, lc_inv: 4, lc_output: 3, lc_cathode: 2, lc_cell: 3 };
 
   // 嵌入式数据集：本站（碳酸锂）暂无
   var EMBED_DATASETS = [];
@@ -27,7 +27,7 @@
   var LINK_DATASETS = [];
 
   // 横坐标按「1月…12月」显示（每月 1 号一个刻度）的数据集
-  var MONTH_AXIS = { daiguan: 1, chugang: 1, hanguan: 1, juanluo_luowen: 1, juanluo_rejuan: 1, mill_order: 1, biaowai: 1, variety_demand: 1, variety_inventory: 1, lc_inv: 1 };
+  var MONTH_AXIS = { daiguan: 1, chugang: 1, hanguan: 1, juanluo_luowen: 1, juanluo_rejuan: 1, mill_order: 1, biaowai: 1, variety_demand: 1, variety_inventory: 1, lc_inv: 1, lc_output: 1, lc_cathode: 1, lc_cell: 1 };
 
   // 纯月份数字轴（'1'..'12'，月度数据）：12 个月标签全显示、格式化为「M月」
   var MONTH_NUM_AXIS = { psi_plan: 1, export_variety: 1, export_country: 1 };
@@ -272,10 +272,12 @@
   }
 
   /* ---------------- 汇总表 ---------------- */
-  function fmtNum(v, suffix) {
-    // 绝对值 >=100 整数，否则保留 1 位小数；自动千分位
+  function fmtNum(v, suffix, nd) {
+    // 优先按数据集精度 nd；未指定时按量级自适应（>=100 整数、>=10 一位、其余两位）
     var abs = Math.abs(v);
-    var fixed = abs >= 100 ? 0 : (abs >= 10 ? 1 : 2);
+    var fixed = (nd === undefined || nd === null)
+      ? (abs >= 100 ? 0 : (abs >= 10 ? 1 : 2))
+      : nd;
     var s = v.toFixed(fixed);
     var parts = s.split('.');
     parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
@@ -283,11 +285,13 @@
   }
 
   /* ---------------- 图下指标条 + 下载按钮（表外 / 分品种表需，仿汾渭卡片） ---------------- */
-  // 图下小表专用数值格式：千分位；小数位按量级自适应
-  // （吨级绝对量 >=100 取整，避免出现 103,330.00 这种多余小数；小数值保留 2 位，与 Excel 口径一致）
-  function fmtCardNum(v) {
-    var abs = Math.abs(v);
-    var nd = abs >= 100 ? 0 : 2;
+  // 图下小表专用数值格式：千分位；小数位按数据集精度（ch.nd）优先，
+  // 未指定时按量级自适应：吨级绝对量 >=100 取整，小数值保留 2 位。
+  // （电芯数据为 GWh、源表 1 位小数，走 ch.nd=1 固定 1 位，避免 49.1 显示成 49.10）
+  function fmtCardNum(v, nd) {
+    if (nd === undefined || nd === null) {
+      nd = Math.abs(v) >= 100 ? 0 : 2;
+    }
     var s = v.toFixed(nd);
     var p = s.split('.');
     p[0] = p[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
@@ -298,6 +302,7 @@
   // kinds: val=绝对值 / delta=差值（正红负绿）/ pct=百分比（正红负绿）
   function buildChartData(ch) {
     var t = ch.table;
+    var nd = (ch.nd === undefined ? null : ch.nd);
     var wrap = document.createElement('div');
     wrap.className = 'chart-data';
     var html = '<table><thead><tr>';
@@ -308,13 +313,13 @@
       var txt = '—', cls = '';
       if (v !== null && v !== undefined && !isNaN(v)) {
         if (kind === 'pct') {
-          txt = (v > 0 ? '+' : '') + fmtCardNum(v) + '%';
+          txt = (v > 0 ? '+' : '') + fmtCardNum(v, nd) + '%';
           cls = v > 0 ? 'up' : (v < 0 ? 'down' : '');
         } else if (kind === 'delta') {
-          txt = (v > 0 ? '+' : '') + fmtCardNum(v);
+          txt = (v > 0 ? '+' : '') + fmtCardNum(v, nd);
           cls = v > 0 ? 'up' : (v < 0 ? 'down' : '');
         } else {
-          txt = fmtCardNum(v);
+          txt = fmtCardNum(v, nd);
         }
       }
       html += cls ? '<td class="' + cls + '">' + txt + '</td>' : '<td>' + txt + '</td>';
@@ -506,7 +511,10 @@
         } else {
           var v = asPct ? raw * 100 : raw;   // 盈利率：比例值 ×100 显示百分比
           var sign = (rd.signed && v > 0) ? '+' : '';
-          td.textContent = sign + fmtNum(v, rd.suffix || '');
+          // 百分比行固定 1 位；绝对量/差值行跟随数据集精度（吨 0 位、GWh 1 位）
+          var nd = (rd.suffix === '%') ? 1
+                 : (s.nd === undefined ? null : s.nd);
+          td.textContent = sign + fmtNum(v, rd.suffix || '', nd);
           if (rd.signed) {
             if (v > 0) td.className = 'up';
             else if (v < 0) td.className = 'down';
