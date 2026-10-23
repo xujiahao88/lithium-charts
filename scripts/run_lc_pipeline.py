@@ -160,6 +160,13 @@ def main():
     # 3) push
     if not args.no_push:
         env = dict(os.environ)
+        # Windows 注册表里若开着 ProxyEnable（如 Clash 127.0.0.1:7897）而代理未启动，
+        # urllib 会走系统代理并报 WinError 10061「目标计算机积极拒绝」→ 部署整条中断。
+        # api.github.com 本来直连，这里显式禁用代理（2026-10-23 实测）。
+        env['NO_PROXY'] = '*'
+        env['no_proxy'] = '*'
+        for k in ('HTTP_PROXY', 'HTTPS_PROXY', 'http_proxy', 'https_proxy'):
+            env.pop(k, None)
         env['COMMIT_MSG'] = 'data: 碳酸锂产业链数据更新（库存至 %s）' % as_of
         run([PY, DEPLOY, REPO] + PUSH_FILES, cwd=ROOT, env=env)
     else:
