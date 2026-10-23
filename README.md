@@ -16,6 +16,9 @@
 | 碳酸锂产量 | `lc_output` | 碳酸锂产量 | SMM 周度产量（总计 + 辉石/云母/盐湖/回收料） | 吨 | 5 | 2026-10-15 |
 | 正极材料 | `lc_cathode` | 正极 | SMM 三元/磷酸铁锂 产量 + 厂内库存 | 吨 | 4 | 2026-10-15 |
 | 动力电芯 | `lc_cell` | 电芯 | SMM 动力电芯产量（合计/铁锂/三元） | GWh | 3 | 2026-10-16 |
+| 新能源车订单 | `lc_order` | —（**另一个文件**） | 高盛周度图册 Exhibit 1 品牌周订单 | 辆 | 9 | 2026-10-18 |
+
+> 「新能源车订单」源不是上面这个工作簿，而是 `C:\Users\Administrator\Nutstore\1\我的坚果云\碳酸锂\新能源汽车订单.xlsx`（手工抄录高盛《China New Energy Vehicle Weekly Chartbook》Exhibit 1，k units ×1000 = 辆）。
 
 > ⚠️ 两套口径不可混读：库存用 **Mysteel**（`lc_inv`），产量与需求端用 **SMM**。
 > 「碳酸锂产量」sheet 里另有 4 列 SMM 样本库存（G~J），按需求**未纳入**站点——库存统一以 Mysteel 口径为准，
@@ -36,13 +39,15 @@ lithium-charts/
 ├─ data/lc_output.json  # SMM 碳酸锂产量
 ├─ data/lc_cathode.json # SMM 正极材料
 ├─ data/lc_cell.json    # SMM 动力电芯
+├─ data/lc_order.json   # 高盛 品牌周订单
 ├─ deploy_repo.py       # 推 GitHub（git-data API）
 └─ scripts/
    ├─ build_lc_inv_charts.py        # 钢联库存 → lc_inv（含勾稽自检）
    ├─ build_lc_downstream_charts.py # SMM 三表 → lc_output/lc_cathode/lc_cell（含勾稽自检）
+   ├─ build_lc_order_charts.py      # 新能源汽车订单.xlsx → lc_order（含行定位/周号自检）
    ├─ shot_lithium.py               # Edge headless 出单 tab 长图
    ├─ stack_images.py               # 多张长图纵向拼接（宽度不一自动缩放）
-   └─ run_lc_pipeline.py            # 一条龙：build×2 → bump → push → 出图 → 发微信
+   └─ run_lc_pipeline.py            # 一条龙：build×3 → bump → push → 出图 → 发微信
 ```
 
 ## 图表
@@ -58,6 +63,11 @@ lithium-charts/
 
 **动力电芯（SMM）**：合计 / 铁锂 / 三元，勾稽 合计 = 铁锂 + 三元
 
+**新能源车订单（高盛）**
+- 组 1「周订单合计」：源表合计（含吉利/零跑）/ 7 品牌可比合计
+- 组 2「分品牌周订单」：BYD / HIMA / 理想 / 蔚来 / 特斯拉 / 小米 / 小鹏
+- 汇总表：本期 / 上期 / 环比 / 同比 / 同比%（同比按**同 ISO 周**匹配上年，不是自然日）
+
 ### 版式（每行几张）
 
 | tab | 每行张数 | 说明 |
@@ -66,6 +76,7 @@ lithium-charts/
 | 碳酸锂产量 | **3** | 用户 2026-10-21 指定；5 张图排成 3+2 |
 | 正极材料 | 2 | 两组（产量 / 厂库存）各一行两张 |
 | 动力电芯 | **3** | 用户 2026-10-21 指定；3 张图一行排满 |
+| 新能源车订单 | 3 | 9 张图排成 2+3+3+1（两个合计组各占一行） |
 
 > 2026-10-21 调整：原 `@media (max-width:1360px)` 会把 `.cols3` 一并压成 2 列，
 > 导致笔记本窗口与长图截图（当时 1080 宽）都塌成 2 列。现改为 **`.cols3` 保持 3 列到 1000px**
@@ -79,6 +90,10 @@ lithium-charts/
   跨年还会左右挪 1~2 天。若直接取 (月,日) 建槽位，4 年叠线会横向错开、轴膨胀到 160+ 槽位
   （碳酸锂产量实测 164 期 → 164 槽）。因此统一按 **ISO 周号** 映射到**基准年（最新年）同周的周四**：
   轴收敛为 52 槽，年份间可比。真实日期仍用于 asOf 与「较年初」。
+- `lc_order`：同用 ISO 周号锚定。**但源表 2025 年日期标签比 2026 年早 7 天**
+  （2026 用「周结束日」，2025 用「周结束日 −7」），脚本对 2025 年日期 +7 天后才取周号，
+  否则 2025 线整体左移一周、同比对标失真。校正后 7 品牌合计同比 −41.3%，
+  与高盛标题「-41% yoy」吻合即校验通过。
 
 ## 更新
 
@@ -89,6 +104,7 @@ python scripts/run_lc_pipeline.py --downstream --stack   # 额外拼一张合并
 python scripts/run_lc_pipeline.py --no-send       # 只更新站点与长图
 python scripts/run_lc_pipeline.py --no-push       # 不推公网
 python scripts/run_lc_pipeline.py --check-only    # 只试算，不落盘
+python scripts/run_lc_pipeline.py --order         # 只出「新能源车订单」一张并只发送它
 python scripts/run_lc_pipeline.py --force         # 忽略签名去重，强制重跑重发
 ```
 
@@ -116,3 +132,8 @@ python scripts/build_lc_downstream_charts.py --only lc_cell
 - 「电芯」合计与铁锂+三元分项有 5 期差 ≤0.25 GWh（2025-10 前后），源表口径差异，未调整。
 - 「正极」三元材料产量自 2024-12 起、磷酸铁锂产量自 2025-04 起才有数据（源表前期无该指标）。
 - 「正极」2024-01-02 与 2024-01-04 属同一 ISO 周，叠线时保留较晚一期。
+- 「新能源汽车订单」2025 年日期标签整体比 2026 年早 7 天（见上「横轴口径」），已在脚本侧校正，源表未改。
+- 「新能源汽车订单」2025 W42 原本缺（源表停在 W41），2026-10-23 按高盛本期图册 Exhibit 1 补入
+  c42（77.9/14.1/16.6/9.3/12.3/3.2/7.4，合计 140.8k），补后 7 品牌求和与源表 SUM 行一致。
+- 「新能源汽车订单」源表两处疑似录入异常，站点按原样呈现、未插补：
+  小米 2026-09-20 的 200,500（前后 55,200 / 13,500）、蔚来 2025-09-14 的 66,700（前后 8,100 / 10,000）。
