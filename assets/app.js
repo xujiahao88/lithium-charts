@@ -18,7 +18,7 @@
   };
 
   // 各数据集「区块内一行几张图」（默认 5 张，见 style.css .grid.rgrid）
-  var GRID_COLS = { psi_plan: 3, daiguan: 3, chugang: 3, export_variety: 3, export_country: 3, mill_order: 3, biaowai: 3, variety_demand: 3, variety_inventory: 3, lc_inv: 4, lc_output: 3, lc_cathode: 2, lc_cell: 3 };
+  var GRID_COLS = { psi_plan: 3, daiguan: 3, chugang: 3, export_variety: 3, export_country: 3, mill_order: 3, biaowai: 3, variety_demand: 3, variety_inventory: 3, lc_inv: 4, lc_output: 3, lc_cathode: 2, lc_cell: 3, lc_order: 3 };
 
   // 嵌入式数据集：本站（碳酸锂）暂无
   var EMBED_DATASETS = [];
@@ -27,7 +27,7 @@
   var LINK_DATASETS = [];
 
   // 横坐标按「1月…12月」显示（每月 1 号一个刻度）的数据集
-  var MONTH_AXIS = { daiguan: 1, chugang: 1, hanguan: 1, juanluo_luowen: 1, juanluo_rejuan: 1, mill_order: 1, biaowai: 1, variety_demand: 1, variety_inventory: 1, lc_inv: 1, lc_output: 1, lc_cathode: 1, lc_cell: 1 };
+  var MONTH_AXIS = { daiguan: 1, chugang: 1, hanguan: 1, juanluo_luowen: 1, juanluo_rejuan: 1, mill_order: 1, biaowai: 1, variety_demand: 1, variety_inventory: 1, lc_inv: 1, lc_output: 1, lc_cathode: 1, lc_cell: 1, lc_order: 1 };
 
   // 纯月份数字轴（'1'..'12'，月度数据）：12 个月标签全显示、格式化为「M月」
   var MONTH_NUM_AXIS = { psi_plan: 1, export_variety: 1, export_country: 1 };
