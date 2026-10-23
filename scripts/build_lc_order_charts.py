@@ -16,9 +16,10 @@ build_lc_order_charts.py — 《新能源汽车订单.xlsx》→ lithium-charts 
      实测：源表 09-21=244.5k、10-05=205.3k 分别精确等于 GS 2025 W39/W41，
      而表头周号（c39=第38周）与日期一致 → 是**数据行整体早一周**，不是表头错。
      故对 2025 年日期 +7 天后再取 ISO 周，否则同比对标整体错位一周。
-  2) **合计行口径变了**。2025 年合计 = 7 个品牌之和（不含 Geely/Leapmotor）；
-     2026 年合计 = 源表 SUM（含 2026 年新增跟踪的 Geely 28.8k、Leapmotor 16.9k）。
-     直接做同比会失真，故汇总表额外给一列「7 品牌可比合计」自算，同比只在该列有效。
+  2) **合计行中途换口径**。2025 全年合计 = 7 个品牌之和；2026 年 1/04~5/03 也是 7 品牌之和，
+     **自 2026-05-10 起**才并入 Geely、Leapmotor（合计比 7 品牌和多出 3.3~4.5 万辆）。
+     故「9 品牌合计」无任何历史同口径：只画 2026-05-10 之后、同比留空；
+     跨年可比只用自算的「7 品牌可比合计」列（同比 −41.3% 与此吻合）。
 
 横轴：与下游三表一致，ISO 周号 → 基准年（最新年份）同周周四的 (月,日)，
       多年同周号落同一槽位，轴收敛到 52~53 槽。
@@ -58,8 +59,12 @@ BRANDS = [
     (18, '小米 Xiaomi',     '小米',   'Xiaomi'),
     (19, '小鹏 XPeng',      '小鹏',   'XPeng'),
 ]
-SUM_ROW = 20          # 源表 2026SUM 行（含 Geely / Leapmotor）
-SUM_NAME, SUM_SHORT = '源表合计（含吉利/零跑）', '源表合计'
+SUM_ROW = 20          # 源表 SUM 行
+# ⚠ 合计行自 2026-05-10 起才含 Geely / Leapmotor（2026-01-04~05-03 仍等于 7 品牌之和），
+#   2025 全年也是 7 品牌 → 9 品牌口径**没有任何历史年份可比**，故该序列只从 2026-05-10 起画，
+#   且不给同比（给了就是拿 7 品牌的旧值当基数，−8.9% 是假数）。
+SUM_CUT = datetime.date(2026, 5, 10)
+SUM_NAME, SUM_SHORT = '9 品牌合计（含吉利/零跑）', '9 品牌合计'
 
 ERR_TOKENS = {'#N/A', '#N/A!', '#VALUE!', '#DIV/0!', '#REF!', '#NAME?', '#NULL!', ''}
 
@@ -231,11 +236,16 @@ def main():
             month_first.append(lb)
     n = len(years)
 
-    def seasonal(m):
+    def seasonal(m, min_date=None, only_year=None):
+        """min_date：早于该日的点不输出（口径起点截断）；only_year：只保留该 ISO 年。"""
         out = {}
         for d, v in m.items():
             y = iso_year(d)
             if y not in years:
+                continue
+            if only_year is not None and y != only_year:
+                continue
+            if min_date is not None and d < min_date:
                 continue
             lb = w2label.get(iso_week(d))
             if lb is None:
@@ -245,7 +255,7 @@ def main():
 
     charts = []
 
-    def add_chart(key, title, group, byyear):
+    def add_chart(key, title, group, byyear, no_yoy=False):
         present = [y for y in years if y in byyear and (y == base_year or len(byyear[y]) >= 2)]
         if not present:
             return
@@ -256,11 +266,17 @@ def main():
                         'dash': st['dash'], 'smooth': False,
                         'marker': 'circle' if y == base_year else 'none',
                         'data': [byyear[y].get(m) for m in md_axis]})
-        charts.append({'key': key, 'title': title, 'type': 'line', 'axis': 0,
-                       'group': group, 'series': ser, 'fmt': 'v', 'nd': ND})
+        ch = {'key': key, 'title': title, 'type': 'line', 'axis': 0,
+              'group': group, 'series': ser, 'fmt': 'v', 'nd': ND}
+        if no_yoy:
+            ch['noYoy'] = True
+        charts.append(ch)
 
-    add_chart('%s-%s' % (DS_ID, '合计'), '周订单合计（源表口径）', '周订单合计', seasonal(data['SUM']))
-    add_chart('%s-%s' % (DS_ID, '可比合计'), '7 品牌合计（可比口径）', '周订单合计', seasonal(comp))
+    # 9 品牌合计：无历史同口径 → 只画基准年、从 2026-05-10 起；不给同比。
+    add_chart('%s-%s' % (DS_ID, '合计'), '9 品牌合计（2026-05 起含吉利、零跑）', '周订单合计',
+              seasonal(data['SUM'], min_date=SUM_CUT, only_year=base_year), no_yoy=True)
+    # 7 品牌可比：唯一能跨年叠线的口径
+    add_chart('%s-%s' % (DS_ID, '可比合计'), '7 品牌可比合计（跨年可叠）', '周订单合计', seasonal(comp))
     for _, name, short, _ in BRANDS:
         add_chart('%s-%s' % (DS_ID, short), '%s（周）' % name, '分品牌周订单', seasonal(data[short]))
 
@@ -289,6 +305,8 @@ def main():
         c = m[ds[-1]] if ds else None
         p = m[ds[-2]] if len(ds) > 1 else None
         y = yoy_of(m, ds[-1]) if ds else None
+        if key == 'SUM':
+            y = None   # 9 品牌无上年同口径（2025 只有 7 品牌），同比留空而不是给假数
         cur.append({'cur': c, 'prev': p, 'yoy': y, 'last_d': ds[-1] if ds else None,
                     'prev_d': ds[-2] if len(ds) > 1 else None})
         rows_cur.append(rnd(c, ND))
@@ -319,19 +337,23 @@ def main():
         x = cur[idx]
         if x['cur'] is None:
             continue
-        ch['table'] = {'labels': ['本期', '上期', '环比', '同比'],
-                       'kinds': ['val', 'val', 'delta', 'delta'],
+        ch['table'] = {'labels': ['本期', '上期', '环比'],
+                       'kinds': ['val', 'val', 'delta'],
                        'values': [rnd(x['cur'], ND), rnd(x['prev'], ND),
-                                  None if x['prev'] is None else rnd(x['cur'] - x['prev'], ND),
-                                  None if x['yoy'] is None else rnd(x['cur'] - x['yoy'], ND)]}
+                                  None if x['prev'] is None else rnd(x['cur'] - x['prev'], ND)]}
+        if not ch.get('noYoy'):
+            ch['table']['labels'].append('同比')
+            ch['table']['kinds'].append('delta')
+            ch['table']['values'].append(
+                None if x['yoy'] is None else rnd(x['cur'] - x['yoy'], ND))
 
     note = '｜'.join([
         '单位：%s' % UNIT,
         '高盛《中国新能源汽车周度图册》Exhibit 1（原表 ThousandCar 口径，k units ×1000）',
         '横轴按 ISO 周号对齐（锚定 %d 年同周日期）' % base_year,
         '⚠ 源表 2025 年日期标签较 2026 年早 7 天，已统一到「周结束日」后再对齐周号',
-        '⚠ 源表合计自 2026 年起含吉利（Geely）与零跑（Leapmotor），2025 年合计仅 7 品牌；'
-        '跨年比较请用「7 品牌可比合计」列',
+        '⚠ 9 品牌合计自 2026-05-10 起含吉利（Geely）与零跑（Leapmotor）；2026-01~04 与 2025 全年'
+        '均为 7 品牌之和 → 9 品牌无上年同口径，故该图只画 2026-05 之后、同比留空；跨年比较一律看「7 品牌可比合计」',
         '2025 年数据自 2 月起，2026 年自 1 月起',
     ])
 
