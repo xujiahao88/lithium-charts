@@ -1,11 +1,11 @@
 {
- "updated": "2026-10-23T15:05:28",
+ "updated": "2026-10-28T14:43:18",
  "datasets": [
   {
    "id": "lc_inv",
    "name": "碳酸锂库存",
    "charts": 7,
-   "asOf": "2026-10-21"
+   "asOf": "2026-10-28"
   },
   {
    "id": "lc_output",
