@@ -29,6 +29,7 @@ build_lc_order_charts.py — 《新能源汽车订单.xlsx》→ lithium-charts 
   python scripts/build_lc_order_charts.py --check   # 只打印，不落盘
 """
 import argparse
+import calendar
 import datetime
 import json
 import os
@@ -350,25 +351,113 @@ def main():
             ch['table']['values'].append(
                 None if x['yoy'] is None else rnd(x['cur'] - x['yoy'], ND))
 
+    # ================= 月度（第二根轴：'1'..'12'） =================
+    # 口径：把每周值按 7 天日均摊到它覆盖的自然日（窗口 [d-6, d]），再按自然月累加。
+    #  · cov < 当月天数 80% → 丢弃（2025-02 只有 19 天、2025-12 是 3 天碎片）
+    #  · 80%~100% → 按 cov 折算成整月并记 est（当月没过完 / 源表上年停在同周）
+    #    折算不改变同月同比，因为两年系数相同（都覆盖到 10-25）。
+    MONTH_LB = [str(i) for i in range(1, 13)]
+
+    def to_month(m, min_ym=None, only_year=None):
+        acc = {}
+        for d, v in m.items():
+            per = v / 7.0
+            for k in range(7):
+                dd = d - datetime.timedelta(days=6 - k)
+                a = acc.setdefault((dd.year, dd.month), [0.0, set()])
+                a[0] += per
+                a[1].add(dd.day)
+        by_year, est = {}, set()
+        for (y, mo), (v, days) in acc.items():
+            if only_year is not None and y != only_year:
+                continue
+            ym = '%04d-%02d' % (y, mo)
+            if min_ym is not None and ym < min_ym:
+                continue
+            full = calendar.monthrange(y, mo)[1]
+            cov = len(days)
+            if cov < full * 0.8:
+                continue
+            val = v * full / cov if cov < full else v
+            if cov < full:
+                est.add(ym)
+            by_year.setdefault(y, {})[str(mo)] = rnd(val, ND)
+        return by_year, est
+
+    est_all = set()
+
+    def add_month_chart(key, title, group, by_year, no_yoy=False):
+        present = [y for y in years if y in by_year and (y == base_year or len(by_year[y]) >= 2)]
+        if not present:
+            return
+        ser = []
+        for y in present:
+            st = series_style(years.index(y), n)
+            ser.append({'name': str(y), 'color': st['color'], 'width': st['width'],
+                        'dash': st['dash'], 'smooth': False,
+                        'marker': 'circle' if y == base_year else 'none',
+                        'data': [by_year[y].get(mo) for mo in MONTH_LB]})
+        ch = {'key': key, 'title': title, 'type': 'line', 'axis': 1,
+              'group': group, 'series': ser, 'fmt': 'v', 'nd': ND}
+        if no_yoy:
+            ch['noYoy'] = True
+        # 卡片指标条：本月 / 上月 / 环比 / 同比（同比按上年同月）
+        ms = sorted([int(x) for x in by_year.get(base_year, {})])
+        if ms:
+            cm = ms[-1]
+            cv = by_year[base_year].get(str(cm))
+            pv = by_year[base_year].get(str(cm - 1))
+            yv = None if no_yoy else by_year.get(base_year - 1, {}).get(str(cm))
+            labels = ['本月', '上月', '环比']
+            kinds = ['val', 'val', 'delta']
+            vals = [cv, pv, None if (cv is None or pv is None) else rnd(cv - pv, ND)]
+            if not no_yoy:
+                labels.append('同比')
+                kinds.append('delta')
+                vals.append(None if (cv is None or yv is None) else rnd(cv - yv, ND))
+            ch['table'] = {'labels': labels, 'kinds': kinds, 'values': vals}
+        charts.append(ch)
+
+    sum_m, e1 = to_month(data['SUM'], min_ym='2026-06', only_year=base_year)
+    est_all |= e1
+    add_month_chart(DS_ID + '-合计-m', '9 品牌合计（月度，2026-06 起）', '月度合计',
+                    sum_m, no_yoy=True)
+    comp_m, e2 = to_month(comp)
+    est_all |= e2
+    add_month_chart(DS_ID + '-可比合计-m', '7 品牌可比合计（月度，跨年可叠）', '月度合计', comp_m)
+    for _, name, short, _ in BRANDS:
+        bm, e3 = to_month(data[short])
+        est_all |= e3
+        add_month_chart('%s-%s-m' % (DS_ID, short), '%s（月度）' % name, '分品牌月度订单', bm)
+
     note = '｜'.join([
         '单位：%s' % UNIT,
-        '高盛《中国新能源汽车周度图册》Exhibit 1（原表 ThousandCar 口径，k units ×1000）',
-        '横轴按 ISO 周号对齐（锚定 %d 年同周日期）' % base_year,
+        '高盛《中国新能源汽车周度图表》Exhibit 1（原表 k units ×1000）',
+        '周度横轴按 ISO 周号对齐（锚定 %d 年同周日期）；月度横轴为 1~12 月' % base_year,
         '⚠ 源表 2025 年日期标签较 2026 年早 7 天，已统一到「周结束日」后再对齐周号',
         '⚠ 9 品牌合计自 2026-05-10 起含吉利（Geely）与零跑（Leapmotor）；2026-01~04 与 2025 全年'
-        '均为 7 品牌之和 → 9 品牌无上年同口径，故该图只画 2026-05 之后、同比留空；跨年比较一律看「7 品牌可比合计」',
-        '2025 年数据自 2 月起，2026 年自 1 月起',
+        '均为 7 品牌之和 → 9 品牌无上年同口径，故该图只画 2026-05（月度取 06）之后、同比留空；'
+        '跨年比较一律看「7 品牌可比合计」',
+        '月度口径：周值按 7 天日均摊入自然月后逐月累加（跨月周按天数分摊），'
+        '避免 4/5 周月带来的机械波动；覆盖不足 80% 的月份已剔除',
+        ('⚠ 按已覆盖天数折算为整月的月份：%s（两年均覆盖至 10-25，折算系数一致，同月同比不受影响）'
+         % '、'.join(sorted(est_all))) if est_all else '',
+        '2025 年数据自 2 月中旬起（2026 年自 1 月起），故 1 月无同比、2025 年 2 月不绘',
     ])
 
-    ds = {'id': DS_ID, 'name': DS_NAME, 'axes': [md_axis], 'monthFirst': month_first,
+    ds = {'id': DS_ID, 'name': DS_NAME,
+          'axes': [md_axis, MONTH_LB], 'axisTypes': ['week', 'month'],
+          'monthFirst': month_first,
           'asOf': last.strftime('%Y-%m-%d'), 'charts': charts, 'summary': summary,
           'note': note, 'unit': UNIT}
 
-    print('\n== %s | asOf %s | 轴 %d 槽位 | 年份 %s | 图 %d'
-          % (DS_NAME, ds['asOf'], len(md_axis), ','.join(str(y) for y in years), len(charts)))
+    print('\n== %s | asOf %s | 周轴 %d 槽位 | 年份 %s | 图 %d（周 %d / 月 %d）'
+          % (DS_NAME, ds['asOf'], len(md_axis), ','.join(str(y) for y in years),
+             len(charts), len(charts) - 9, 9))
     print('   本周:', dict(zip([c['label'] for c in columns], rows_cur)))
     print('   环比:', rows_wow)
     print('   同比%:', rows_yoy_pct)
+    print('   月度折算月:', sorted(est_all))
     for ch in charts:
         print('   [%s] %s' % (ch['group'], ch['title']))
 

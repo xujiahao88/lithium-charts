@@ -127,6 +127,13 @@
   function buildOption(chart, ds, yRange) {
     if (chart.type === 'bar') return buildBarOption(chart, ds);
     var axis = ds.axes[chart.axis];
+    // 轴类型：dataset 可给 axisTypes[轴序号] = 'week' | 'month' | 'date'，
+    // 用于同一 dataset 内混排周度轴与月度轴（lc_order 即是），未给则沿用按 dsId 的全局判定。
+    var axType = (ds.axisTypes && ds.axisTypes[chart.axis]) || null;
+    var isDateAx = axType ? (axType === 'date') : !!S.dateAxis;
+    var isMonthNum = axType ? (axType === 'month') : !!MONTH_NUM_AXIS[S.dsId];
+    var isWeekCal = axType ? (axType === 'week') : !!MONTH_AXIS[S.dsId];
+    var monthFirst = (axType && axType !== 'week') ? null : S.monthFirst;
     var series = chart.series.filter(function (s) { return !S.hidden[s.name]; });
     var maxYear = series.length ? series[series.length - 1].name : '';
 
@@ -170,30 +177,31 @@
         type: 'category', data: axis, boundaryGap: false,
         axisLine: { lineStyle: { color: '#d5dbe6' } },
         // 月度轴：在每月 1 号（日频数据则取每月首个交易日）位置显示刻度线
-        axisTick: (MONTH_AXIS[S.dsId] || S.monthFirst)
+        axisTick: isWeekCal && monthFirst
           ? {
               show: true, length: 5, lineStyle: { color: '#cbd5e1' },
-              interval: S.monthFirst
-                ? function (i, v) { return S.monthFirst.indexOf(v) >= 0; }
-                : function (i, v) { return /-01$/.test(v); }
+              interval: function (i, v) { return monthFirst.indexOf(v) >= 0; }
             }
-          : { show: false },
+          : (isWeekCal ? {
+              show: true, length: 5, lineStyle: { color: '#cbd5e1' },
+              interval: function (i, v) { return /-01$/.test(v); }
+            } : { show: false }),
         axisLabel: {
           // 月度轴标签多，字号调小到 8
-          fontSize: (MONTH_AXIS[S.dsId] || MONTH_NUM_AXIS[S.dsId]) ? 8 : 9, color: '#94a3b8',
+          fontSize: (isWeekCal || isMonthNum) ? 8 : 9, color: '#94a3b8',
           // 月度轴：横坐标显示「1月…12月」
           formatter: function (v) {
-            if (S.dateAxis) {
+            if (isDateAx) {
               var dm = /^(\d{4})-(\d{2})-/.exec(v);
               if (dm) return dm[2] === '01' ? dm[1] : dm[2] + '月';
               return v;
             }
-            if (MONTH_AXIS[S.dsId]) {
+            if (isWeekCal) {
               var mm = /^(\d{2})-/.exec(v);
               if (mm) return parseInt(mm[1], 10) + '月';
               return v;
             }
-            if (MONTH_NUM_AXIS[S.dsId]) {
+            if (isMonthNum) {
               var mn = parseInt(v, 10);
               return isNaN(mn) ? v : mn + '月';
             }
@@ -206,10 +214,10 @@
           //  · 连续日期轴（YYYY-MM-DD，日频序列）→ dateTicks 季度刻度
           //  · 日频季节性轴（MM-DD + monthFirst，如钢厂日接单）→ 每月首个交易日
           interval: function (i, v) {
-            if (S.dateAxis) return S.dateTicks ? (S.dateTicks.indexOf(i) >= 0) : (i === 0);
-            if (S.monthFirst) return S.monthFirst.indexOf(v) >= 0;
-            if (MONTH_NUM_AXIS[S.dsId]) return true;
-            if (MONTH_AXIS[S.dsId]) return /-01$/.test(v);
+            if (isMonthNum) return true;
+            if (isDateAx) return S.dateTicks ? (S.dateTicks.indexOf(i) >= 0) : (i === 0);
+            if (monthFirst) return monthFirst.indexOf(v) >= 0;
+            if (isWeekCal) return /-01$/.test(v);
             var m = /^\s*(\d{1,2})\s*月?\s*$/.exec(v);
             if (m) { var n = parseInt(m[1], 10); return n === 1 || n === 4 || n === 7 || n === 10; }
             return i === 0 || /^(01|04|07|10)-01$/.test(v);
