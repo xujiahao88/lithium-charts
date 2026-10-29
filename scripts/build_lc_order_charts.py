@@ -47,7 +47,10 @@ ND = 0
 MAX_YEARS = 5
 
 DATE_ROW = 4
-COLS = list(range(2, 43)) + list(range(55, 99))   # 2025 段 + 2026 段
+# 2025 段 c2~c54、2026 段 c55~c98 全扫，靠「第 4 行是否 datetime」筛掉分隔空列。
+# ⚠ 原先写死 range(2,43)，2026-10-29 补 2025 W43 到 c43 后整列读不到，
+#   导致本期同比全为 None —— 不要再改回固定上界。
+COLS = list(range(2, 55)) + list(range(55, 99))
 
 # 行号 -> (显示名, 简称, 行名列校验关键字)
 BRANDS = [
