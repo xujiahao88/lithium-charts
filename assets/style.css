@@ -186,6 +186,14 @@ main[data-ds="zhigong"] { padding: 14px 20px 24px; }
   font-weight: 400;
   color: #94a3b8;
 }
+/* 卡片副标题：放源表「备注」原话（排产·分企业） */
+.card-sub {
+  padding: 6px 14px 0;
+  font-size: 11px;
+  line-height: 1.5;
+  color: #6b7280;
+  background: #fff;
+}
 .chart {
   width: 100%;
   height: 236px;
@@ -407,6 +415,11 @@ body.shot main { padding-top: 10px; }
   font-weight: 600;
 }
 .summary-table td.na { color: #cbd5e1; }
+/* 文本列（备注等）：左对齐、小字、允许换行 */
+.summary-table td.txt {
+  text-align: left; font-size: 10px; line-height: 1.45;
+  color: #6b7280; white-space: normal; min-width: 180px; font-weight: 400;
+}
 .summary-table tbody tr.r-累计同比 td.row-label,
 .summary-table tbody tr.r-累计增幅% td.row-label {
   color: var(--brand);

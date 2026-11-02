@@ -20,7 +20,7 @@
   };
 
   // 各数据集「区块内一行几张图」（默认 5 张，见 style.css .grid.rgrid）
-  var GRID_COLS = { psi_plan: 3, daiguan: 3, chugang: 3, export_variety: 3, export_country: 3, mill_order: 3, biaowai: 3, variety_demand: 3, variety_inventory: 3, lc_inv: 4, lc_output: 3, lc_cathode: 2, lc_cell: 3, lc_order: 3, lc_ore_ship: 4, lc_chile_ship: 4, lc_ore_inv: 3 };
+  var GRID_COLS = { psi_plan: 3, daiguan: 3, chugang: 3, export_variety: 3, export_country: 3, mill_order: 3, biaowai: 3, variety_demand: 3, variety_inventory: 3, lc_inv: 4, lc_output: 3, lc_cathode: 2, lc_cell: 3, lc_order: 3, lc_ore_ship: 4, lc_chile_ship: 4, lc_ore_inv: 3, lc_sched: 2, lc_sched_co: 4 };
 
   // 嵌入式数据集：本站（碳酸锂）暂无
   var EMBED_DATASETS = [];
@@ -32,7 +32,7 @@
   var MONTH_AXIS = { daiguan: 1, chugang: 1, hanguan: 1, juanluo_luowen: 1, juanluo_rejuan: 1, mill_order: 1, biaowai: 1, variety_demand: 1, variety_inventory: 1, lc_inv: 1, lc_output: 1, lc_cathode: 1, lc_cell: 1, lc_order: 1, lc_ore_ship: 1, lc_chile_ship: 1, lc_ore_inv: 1 };
 
   // 纯月份数字轴（'1'..'12'，月度数据）：12 个月标签全显示、格式化为「M月」
-  var MONTH_NUM_AXIS = { psi_plan: 1, export_variety: 1, export_country: 1 };
+  var MONTH_NUM_AXIS = { psi_plan: 1, export_variety: 1, export_country: 1, lc_sched: 1, lc_sched_co: 1 };
 
   var DASH = {
     solid: 'solid', dash: 'dashed', sysDash: 'dashed',
@@ -493,6 +493,10 @@
       var view = seg[seg.length - 1];
       var label = k;
       var meta = ROW_META[view] || {};
+      // 数据集自带行样式（如排产表的「铁锂增速%」「三元增速%」不在 ROW_META 白名单里）
+      if (s.rowMeta && s.rowMeta[k]) {
+        meta = { signed: !!s.rowMeta[k].signed, suffix: s.rowMeta[k].suffix || '' };
+      }
       var d = { key: k, label: label };
       if (view === '本期') d.date = s.currentWeek;
       if (view === '上期') d.date = s.previousWeek;
@@ -516,7 +520,10 @@
       s.columns.forEach(function (c, i) {
         var td = document.createElement('td');
         var raw = vals[i];
-        if (raw === null || raw === undefined) {
+        if (typeof raw === 'string') {          // 文本单元格（备注列等）
+          td.textContent = raw;
+          td.className = 'txt';
+        } else if (raw === null || raw === undefined) {
           td.textContent = '—';
           td.className = 'na';
         } else {
@@ -705,6 +712,12 @@
       box.className = 'chart';
 
       card.appendChild(head);
+      if (ch.sub) {                       // 卡片副标题（排产·分企业：源表备注原话）
+        var sb = document.createElement('div');
+        sb.className = 'card-sub';
+        sb.textContent = ch.sub;
+        card.appendChild(sb);
+      }
       card.appendChild(box);
       // 图下指标条 + 下载图片：仅当数据带 chart.table 时渲染（表外 / 分品种表需 两个页面）
       if (ch.table && ch.table.labels && ch.table.values) {
