@@ -1,5 +1,5 @@
 {
- "updated": "2026-10-29T14:06:46",
+ "updated": "2026-11-02T14:37:26",
  "datasets": [
   {
    "id": "lc_inv",
@@ -30,6 +30,24 @@
    "name": "新能源车订单",
    "charts": 18,
    "asOf": "2026-10-25"
+  },
+  {
+   "id": "lc_ore_ship",
+   "name": "全球锂矿发运",
+   "charts": 4,
+   "asOf": "2026-11-01"
+  },
+  {
+   "id": "lc_chile_ship",
+   "name": "智利锂盐发运",
+   "charts": 4,
+   "asOf": "2026-11-01"
+  },
+  {
+   "id": "lc_ore_inv",
+   "name": "锂精矿港口库存",
+   "charts": 6,
+   "asOf": "2026-10-30"
   }
  ]
 }
