@@ -11,6 +11,8 @@
     items: [],
     io: null,
     shot: false,
+    onlyAxis: null,    // ?axis=N → 只渲染该轴（0=周度 1=月度）的图；null=全量
+    noSum: false,      // ?nosum=1 → 不渲染汇总表（月度分张出图用）
     hidden: {},        // 年份 -> true 表示隐藏
     years: [],
     opt: { connect: true, zero: false, sync: false },
@@ -650,15 +652,20 @@
       return;
     }
 
-    // 汇总表（在图表网格之前）
-    var sumEl = renderSummaryTable(ds);
+    // 汇总表（在图表网格之前）；?nosum=1 时不渲染（月度图用，汇总表是周度口径）
+    var sumEl = S.noSum ? null : renderSummaryTable(ds);
     main.innerHTML = '';
     main.setAttribute('data-ds', dsId);   // 数据集级样式钩子（如带钢加宽）
     if (sumEl) main.appendChild(sumEl);
 
+    // ?axis=N → 只渲染 axis 索引为 N 的图（同一数据集混排周/月轴时用来分张出图）
+    var visCharts = (S.onlyAxis === null)
+      ? ds.charts
+      : ds.charts.filter(function (ch) { return (ch.axis || 0) === S.onlyAxis; });
+
     // 按 ch.group 分区块渲染（钢材站：一个区块一组指标，区块内 5 图一行）
     var curGroup = null, grid = null;
-    ds.charts.forEach(function (ch) {
+    visCharts.forEach(function (ch) {
       var g = ch.group || '';
       if (g !== curGroup) {
         curGroup = g;
@@ -710,8 +717,8 @@
 
     // 年份开关（按当前数据集的系列名）
     var years = [];
-    if (ds.charts[0] && ds.charts[0].series) {
-      ds.charts[0].series.forEach(function (s) { years.push({ name: s.name, color: s.color }); });
+    if (visCharts[0] && visCharts[0].series) {
+      visCharts[0].series.forEach(function (s) { years.push({ name: s.name, color: s.color }); });
     }
     S.years = years;
     renderYearToggles();
@@ -816,6 +823,10 @@
   function boot() {
     var params = new URLSearchParams(location.search);
     S.shot = params.get('shot') === '1';
+    S.noSum = params.get('nosum') === '1';
+    var axQ = params.get('axis');
+    S.onlyAxis = (axQ === null || axQ === '') ? null : parseInt(axQ, 10);
+    if (isNaN(S.onlyAxis)) S.onlyAxis = null;
     var want = params.get('ds');
 
     loadData(function () {

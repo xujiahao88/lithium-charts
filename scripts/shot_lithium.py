@@ -120,6 +120,10 @@ def main():
                     help="设备缩放比例（不影响 CSS 布局，仅提高像素密度）。"
                          "1.333 → 1920x2600 出 2560x3467（2K）；2.0 → 3840x5200（4K）")
     ap.add_argument("--url", default=None, help="自定义 URL（覆盖默认 site 构造）")
+    ap.add_argument("--axis", type=int, default=None,
+                    help="只渲染该轴索引的图（同一数据集混排周/月轴时用：0=周度 1=月度）")
+    ap.add_argument("--no-sum", dest="no_sum", action="store_true",
+                    help="不渲染顶部汇总表（月度图用，汇总表是周度口径）")
     ap.add_argument("--title", default=None, help="截图顶部大标题")
     ap.add_argument("--subtitle", default=None, help="截图顶部副标题（默认空）")
     ap.add_argument("--no-trim", dest="trim", action="store_false",
@@ -151,6 +155,10 @@ def main():
     else:
         index = os.path.join(args.site, "index.html").replace("\\", "/")
         url = "file:///" + index + f"?ds={args.ds}&shot=1"
+        if args.axis is not None:
+            url += f"&axis={args.axis}"
+        if args.no_sum:
+            url += "&nosum=1"
 
     cmd = [
         edge, "--headless=new", "--disable-gpu", "--hide-scrollbars",

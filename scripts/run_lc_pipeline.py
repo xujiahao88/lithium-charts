@@ -41,11 +41,16 @@ SEND = r'C:\Users\Administrator\iron-ore-charts\scripts\send_to_wechat.py'
 STATE = os.path.join(ROOT, 'shot', '.lc_inv_state.json')
 IMG = os.path.join(ROOT, 'shot', '碳酸锂库存_长图.png')
 IMG_DN = os.path.join(ROOT, 'shot', '碳酸锂下游_长图.png')
-IMG_ORDER = os.path.join(ROOT, 'shot', '新能源车订单_长图.png')
 
-# 新能源车订单（高盛 chartbook）：独立一张，9 图 3 列 → 3 行；视口 1440 + scale 1.5 = 2160px 宽
-ORDER_SEG = ('lc_order', '新能源车订单', 'shot/新能源车订单_长图.png', 2200, '辆',
-             '高盛《中国新能源汽车周度图册》Exhibit 1')
+# 新能源车订单（高盛 chartbook）：**周度、月度各出一张**（2026-11-02 用户要求「月度和周度分开两张图」）。
+# 同一数据集靠 ?axis= 过滤：0=周度轴（含汇总表）、1=月度轴（无汇总表，按月度口径不该套周度汇总）。
+# 9 图 3 列 → 3 行；视口 1440 + scale 1.5 = 2160px 宽。
+ORDER_SEGS = [
+    ('lc_order', '新能源车订单 · 周度', 'shot/新能源车订单_周度_长图.png', 2300, 0, False,
+     '高盛《中国新能源汽车周度图册》Exhibit 1'),
+    ('lc_order', '新能源车订单 · 月度', 'shot/新能源车订单_月度_长图.png', 2100, 1, True,
+     '高盛《中国新能源汽车周度图册》Exhibit 1｜周值按天分摊到自然月'),
+]
 
 # 下游三段（产量 / 正极 / 电芯）：默认各出**独立一张**（2026-10-21 用户要求「分成三张图」），
 # 分别带标题条，便于在微信里单张查看；加 --stack 才额外拼一张合并图存档。
@@ -199,28 +204,35 @@ def main():
             run([PY, STACK, '--out', IMG_DN, '--inputs'] + dn_imgs + ['--gap', '30'],
                 cwd=ROOT)
 
-    # 4c) 新能源车订单（可选）
-    order_img = None
+    # 4c) 新能源车订单（可选）：周度 / 月度各一张
+    order_imgs = []
     if args.order and not args.no_shot:
-        ds_id, name, out, h, unit, src = ORDER_SEG
-        p = os.path.join(ROOT, out)
-        o_asof = as_of_of(ds_id) or as_of
-        run([PY, SHOT, '--ds', ds_id, '--out', p,
-             '--width', str(DN_WIDTH), '--height', str(h), '--scale', str(DN_SCALE),
-             '--title', '碳酸锂产业链 · ' + name,
-             '--subtitle', '数据截至 %s｜%s｜单位：%s' % (o_asof, src, unit)],
-            cwd=ROOT)
-        order_img = p
+        o_asof = as_of_of('lc_order') or as_of
+        for ds_id, name, out, h, axis_idx, no_sum, src in ORDER_SEGS:
+            p = os.path.join(ROOT, out)
+            cmd = [PY, SHOT, '--ds', ds_id, '--out', p,
+                   '--width', str(DN_WIDTH), '--height', str(h), '--scale', str(DN_SCALE),
+                   '--axis', str(axis_idx),
+                   '--title', '碳酸锂产业链 · ' + name,
+                   '--subtitle', '数据截至 %s｜%s｜单位：辆' % (o_asof, src)]
+            if no_sum:
+                cmd.append('--no-sum')
+            run(cmd, cwd=ROOT)
+            order_imgs.append(p)
 
     # 5) send
     if args.no_send:
         print('\n[skip] 不发微信（--no-send）')
     else:
         if args.order:
-            if not order_img or not os.path.exists(order_img):
-                raise SystemExit('订单长图不存在：%s' % order_img)
-            r = subprocess.run([PY, SEND, order_img, '--no-countdown'], cwd=ROOT)
-            ok = (r.returncode == 0)
+            if not order_imgs:
+                raise SystemExit('订单长图未生成')
+            ok = True
+            for p in order_imgs:
+                if not os.path.exists(p):
+                    raise SystemExit('订单长图不存在：%s' % p)
+                r = subprocess.run([PY, SEND, p, '--no-countdown'], cwd=ROOT)
+                ok = ok and (r.returncode == 0)
         else:
             if not os.path.exists(IMG):
                 raise SystemExit('长图不存在：%s' % IMG)

@@ -83,7 +83,7 @@ lithium-charts/
 | 碳酸锂产量 | **3** | 用户 2026-10-21 指定；5 张图排成 3+2 |
 | 正极材料 | 2 | 两组（产量 / 厂库存）各一行两张 |
 | 动力电芯 | **3** | 用户 2026-10-21 指定；3 张图一行排满 |
-| 新能源车订单 | 3 | 18 张图排成 6 行：周度 2+3+3+1、月度 2+3+3+1 |
+| 新能源车订单 | 3 | 18 张图排成 6 行：周度 2+3+3+1、月度 2+3+3+1；**出图时按轴拆成两张**（`?axis=0` 周度 / `?axis=1` 月度） |
 
 > 2026-10-21 调整：原 `@media (max-width:1360px)` 会把 `.cols3` 一并压成 2 列，
 > 导致笔记本窗口与长图截图（当时 1080 宽）都塌成 2 列。现改为 **`.cols3` 保持 3 列到 1000px**
@@ -107,6 +107,19 @@ lithium-charts/
   标签全不显示（`/-01$/` 匹配不上）。
 - 月度横轴固定 `'1'..'12'`，不随年份偏移；2025 线从 3 月起（源表 2 月中旬才有数据，2 月覆盖不足 80% 已剔除）。
 
+### 分张出图（周度 / 月度分开）
+
+同一数据集混排两根轴时，出图靠两个 URL 参数裁剪，不必复制数据集：
+
+| 参数 | 作用 |
+|---|---|
+| `?axis=N` | 只渲染 `chart.axis === N` 的图。`lc_order`：0=周度（9 图）、1=月度（9 图） |
+| `?nosum=1` | 不渲染顶部汇总表（汇总表是**周度**口径，放进月度图会误导） |
+
+- 对应用法：`shot_lithium.py --axis 1 --no-sum`
+- `run_lc_pipeline.py --order` 的 `ORDER_SEGS` 已配好两条，**出两张并逐张发微信**
+- 网页正常浏览（不带参数）仍是单 tab 内 18 图 + 汇总表，两张长图只是出图视角
+
 ## 更新
 
 ```bash
@@ -116,7 +129,7 @@ python scripts/run_lc_pipeline.py --downstream --stack   # 额外拼一张合并
 python scripts/run_lc_pipeline.py --no-send       # 只更新站点与长图
 python scripts/run_lc_pipeline.py --no-push       # 不推公网
 python scripts/run_lc_pipeline.py --check-only    # 只试算，不落盘
-python scripts/run_lc_pipeline.py --order         # 只出「新能源车订单」一张（周度+月度，2160×5287）并只发送它
+python scripts/run_lc_pipeline.py --order         # 只出「新能源车订单」两张（周度 + 月度）并逐张发送
 python scripts/run_lc_pipeline.py --force         # 忽略签名去重，强制重跑重发
 ```
 
@@ -127,6 +140,8 @@ python scripts/run_lc_pipeline.py --force         # 忽略签名去重，强制�
 | `shot\碳酸锂产量_长图.png` | 2160×1805 | 5 图（3+2） |
 | `shot\正极材料_长图.png` | 2160×1859 | 4 图（2+2） |
 | `shot\动力电芯_长图.png` | 2160×1264 | 3 图一行 |
+| `shot\新能源车订单_周度_长图.png` | 2160×3013 | 周度 9 图 + 本期汇总表 |
+| `shot\新能源车订单_月度_长图.png` | 2160×2495 | 月度 9 图（无汇总表） |
 
 去重签名 = 4 个数据集 asOf 的组合（`lc_inv=…|lc_output=…|…`）。任一数据集换期都会重发，
 避免「只更新了 SMM 三表、库存没变」被误判为已发送。
