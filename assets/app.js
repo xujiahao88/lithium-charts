@@ -729,6 +729,15 @@
       S.items.push({ key: ch.key, chart: ch, ds: ds, el: box, card: card, inst: null });
     });
 
+    // 无汇总表的数据集（如「分企业排产」）：把口径 note 渲染成页脚备注，
+    // 否则 note 只挂在汇总框里、没有汇总表时会整段丢失。
+    if (!sumEl && ds.note) {
+      var footNote = document.createElement('div');
+      footNote.className = 'summary-note foot-note';
+      footNote.textContent = ds.note;
+      main.appendChild(footNote);
+    }
+
     // 年份开关（按当前数据集的系列名）
     var years = [];
     if (visCharts[0] && visCharts[0].series) {
