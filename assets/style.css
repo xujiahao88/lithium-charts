@@ -473,3 +473,6 @@ main[data-ds="lc_sched"] .card.wide .chart { height: 470px; }
 @media (max-width: 1000px) { .grid.rgrid, .grid.rgrid.cols3, .grid.rgrid.cols4 { grid-template-columns: repeat(2, 1fr); } }
 @media (max-width: 680px)  { .grid.rgrid, .grid.rgrid.cols3, .grid.rgrid.cols4 { grid-template-columns: 1fr; } }
 .summary-note.foot-note { margin: 14px 2px 26px; }
+
+/* 2026-11-03 用户要求：长图（?shot=1）里不显示口径备注 */
+body.shot .summary-note { display: none !important; }

@@ -125,7 +125,10 @@ def main():
     ap.add_argument("--no-sum", dest="no_sum", action="store_true",
                     help="不渲染顶部汇总表（月度图用，汇总表是周度口径）")
     ap.add_argument("--title", default=None, help="截图顶部大标题")
-    ap.add_argument("--subtitle", default=None, help="截图顶部副标题（默认空）")
+    ap.add_argument("--subtitle", default=None,
+                    help="截图顶部副标题（默认不绘制；要显示需同时加 --keep-subtitle）")
+    ap.add_argument("--keep-subtitle", dest="keep_subtitle", action="store_true",
+                    help="保留标题下的副标题。2026-11-03 用户要求长图不要标题下的红字，故默认关闭")
     ap.add_argument("--no-trim", dest="trim", action="store_false",
                     help="关闭底部自动裁白边（默认开启）")
     ap.add_argument("--trim-margin", type=int, default=45,
@@ -184,7 +187,8 @@ def main():
         import shutil
         shutil.move(tmp_out, args.out)
     if args.title:
-        add_title_overlay(args.out, args.title, args.subtitle)
+        add_title_overlay(args.out, args.title,
+                          args.subtitle if args.keep_subtitle else None)
     if args.trim:
         trim_bottom_whitespace(args.out, margin=args.trim_margin)
     sz = os.path.getsize(args.out)

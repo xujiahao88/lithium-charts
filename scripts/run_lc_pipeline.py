@@ -185,8 +185,7 @@ def main():
     if not args.no_shot:
         run([PY, SHOT, '--ds', DS_ID, '--out', IMG,
              '--width', '1080', '--height', '4200', '--scale', '2',
-             '--title', '碳酸锂库存',
-             '--subtitle', '数据截至 %s｜我的钢铁网（Mysteel）周度调研｜单位：吨' % as_of],
+             '--title', '碳酸锂库存'],
             cwd=ROOT)
     else:
         print('[skip] 不出图')
@@ -200,8 +199,7 @@ def main():
             run([PY, SHOT, '--ds', ds_id, '--out', p,
                  '--width', str(DN_WIDTH), '--height', str(h),
                  '--scale', str(DN_SCALE),
-                 '--title', '碳酸锂产业链 · ' + name,
-                 '--subtitle', '数据截至 %s｜%s｜单位：%s' % (d_asof, src, unit)],
+                 '--title', '碳酸锂产业链 · ' + name],
                 cwd=ROOT)
             dn_imgs.append(p)
         if args.stack:
@@ -217,8 +215,7 @@ def main():
             cmd = [PY, SHOT, '--ds', ds_id, '--out', p,
                    '--width', str(DN_WIDTH), '--height', str(h), '--scale', str(DN_SCALE),
                    '--axis', str(axis_idx),
-                   '--title', '碳酸锂产业链 · ' + name,
-                   '--subtitle', '数据截至 %s｜%s｜单位：辆' % (o_asof, src)]
+                   '--title', '碳酸锂产业链 · ' + name]
             if no_sum:
                 cmd.append('--no-sum')
             run(cmd, cwd=ROOT)
