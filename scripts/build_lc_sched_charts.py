@@ -1,39 +1,44 @@
 # -*- coding: utf-8 -*-
 """
-build_lc_sched_charts.py — 下游排产（加密 xls）→ lithium-charts 两个数据集
+build_lc_sched_charts.py — 下游排产（则言）→ lithium-charts 五个数据集
 
-源：readdata-10.xls（**加密，密码 yongfu**；OLE2/RC4，需 msoffcrypto 解密后 xlrd 读）
-  三个 sheet：
-    · 排产      环节(电池/正极/碳酸锂/前驱体/电解液/负极) × 企业 × 2024-10~2026-11 月度
-                电池行为「x三元+y铁锂」文本（GWh）；正极/碳酸锂/前驱体/电解液/负极为吨；
-                另有 4 行合计：电池合计（全样本 GWh）、正极合计（万吨，文本）、
-                碳酸锂国内合计（万吨）、以及各企业「备注」列（第 28 列，分析师原话）
-    · 磷酸铁锂  45 家企业 2023-01~2026-09 月度产量（吨）+ 末行合计
-    · 碳酸锂    87 家企业 2024-01~2026-09 月度产量（吨）+ 末行合计
+历史数据（2026-11-03 起）：**双源合并**，解决「排产 sheet 只有 2024-10 起」的历史缺口
+  ① 则言排产.xlsx（不加密，openpyxl 读）
+     · sheet《锂电排产-则言月初》——电池六家 / 正极 16 家 / 各环节备注，
+       月度 **2024-01 ~ 2026-11**（原 readdata 只有 2024-10 起，2024 年只有 Q4 三个点）
+     · sheet《锂盐-则言-（月）》——碳酸锂分企业（77 家）月度 **2023-01 起**
+  ② readdata-N.xls（**加密，密码 yongfu**，msoffcrypto 解密 → xlrd）
+     · sheet《排产》——2024-10 ~ 2026-11，用于：碳酸锂后三个月（则言锂盐表只到 2026-08）、
+       前驱体/电解液/负极（则言里只有文字备注没有数）、电池全样本合计
 
-产出两个 dataset：
-  · lc_sched     下游排产     —— 图版式对标用户给的「下游排产（月初）」表：
-                    顶部汇总表（电池六家 / 正极全样本 × 2026-09·10·11 三元/铁锂及其环比）
-                    + 4 张季节性图（头部六家三元电池 / 三元正极 / 头部六家铁锂电池 / 铁锂正极）
-  · lc_sched_co  分企业排产   —— 43 家企业逐家一张季节性图（环节分组），图下带
-                    2026-11 / 2026-10 / 环比 指标条，卡片副标题放源表「备注」原话
+合并规则
+  · 电池 / 正极：整段用则言（单一来源，不会出现拼接跳变；已核对 2024-10~2026-11 与
+    readdata 逐企业一致，仅 E/G 有 0.1~0.6 GWh 级修订）
+  · 碳酸锂：2023-01~2024-09 取《锂盐》表，2024-10 起改用 readdata（两源在 2024-10 完全对齐，
+    越往后越发散——2025-06 志存 4300 vs 1300，属不同复古版本，**只在 2024-10 这个接缝拼接**）
+  · 前驱体 / 电解液 / 负极：仅 readdata（2024-10 起）
 
-口径要点（务必保留在 note 里）：
-  1. 电池「合计」行是全样本（2026-11 铁锂 246 GWh），而分企业只列了 6 家
-     （六家合计 175.3 GWh）——图片版式用的是**六家**口径，两者不可混比。
-  2. 正极「合计」行以万吨文本给出（如「62.41铁锂+9.83三元」），与磷酸铁锂 sheet、
-     排产 sheet 里企业行（吨）是同一口径换算，量级一致。
-  3. **源表历史只到 2024-10**，故 2024 年曲线只有 10~12 月三个点；不要拿 2024
-     的季节形状做同比结论。磷酸铁锂/碳酸锂明细表另有 2023-01 / 2024-01 起的历史，
-     但与排产 sheet 的合计在 2024-10~2025-02 有 0.8~3.0 万吨级差异（源表版本不同），
-     **刻意不混用**，避免把口径差读成趋势。
-  4. 环比一律按「源表当前版本的相邻两月」计算；历史月会被源表回溯修订，
-     与上月已发布版本算出来的环比可能差 0.5 个点左右。
+产出五个 dataset（各自一个 tab）
+  · lc_sched      下游排产     —— 汇总表（电池六家 / 正极全样本 × 最近三月）+ 4 张季节性图
+  · lc_sched_bat  电池分企业   —— 6 家，GWh
+  · lc_sched_pos  正极分企业   —— 磷酸铁锂 11 家 + 三元 6 家
+  · lc_sched_lc   碳酸锂分企业 —— 10 家 + 智利出口中国（进口参考），吨
+  · lc_sched_co   其他材料     —— 前驱体 4 / 电解液 3 / 负极 2
+
+口径要点（务必保留在 note 里）
+  1. 电池「合计」行是全样本（2026-11 铁锂 246 / 三元 54 GWh），分企业只列 6 家
+     （六家合计 175.3 GWh）——图片版式用的是**六家**，两者不可混比。
+  2. 正极「合计」行是全样本（万吨，2026-11 铁锂 62.41 / 三元 9.83），分企业列示 11 家铁锂
+     合计 43.75 万吨，差额为未列名企业。
+  3. 环比一律按同一源表版本的相邻两月计算；历史月会被源表回溯修订。
+  4. 碳酸锂分企业 2023-01~2024-09 来自《锂盐-则言-（月）》，2024-10 起来自 readdata；
+     两源接缝在 2024-10 对齐（逐家一致，华友 3000 vs 3100 差 100 吨）。
+  5. 前驱体/电解液/负极只有 2024-10 起，2024 曲线仍为 Q4 三点。
 
 用法：
-  python scripts/build_lc_sched_charts.py               # 落盘 data/lc_sched*.json + data.js + meta.json
-  python scripts/build_lc_sched_charts.py --check       # 只打印结构，不落盘
-  python scripts/build_lc_sched_charts.py --src X.xls --pwd yongfu
+  python scripts/build_lc_sched_charts.py            # 落盘 data/lc_sched*.json + data.js + meta.json
+  python scripts/build_lc_sched_charts.py --check    # 只打印结构与自检，不落盘
+  python scripts/build_lc_sched_charts.py --zy X.xlsx --rd Y.xls --pwd yongfu
 """
 import argparse
 import datetime
@@ -44,57 +49,68 @@ import tempfile
 from decimal import Decimal, ROUND_HALF_UP
 
 import msoffcrypto
+import openpyxl
 import xlrd
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA = os.path.join(ROOT, 'data')
-SRC = r'C:\Users\Administrator\Nutstore\1\我的坚果云\碳酸锂\readdata-10.xls'
+BASE = r'C:\Users\Administrator\Nutstore\1\我的坚果云\碳酸锂'
+ZY_SRC = os.path.join(BASE, '则言排产.xlsx')
+RD_SRC = os.path.join(BASE, 'readdata-10.xls')
 PWD = 'yongfu'
 
-# 排产 sheet 的月列：C 列（0-based 2）起 26 个月
-M0 = (2024, 10)
-NMON = 26
+M_START = (2023, 1)
+M_END = (2026, 11)
 MONTHS = []
-_y, _m = M0
-for _ in range(NMON):
-    MONTHS.append((_y, _m))
-    _m += 1
-    if _m > 12:
-        _y, _m = _y + 1, 1
 
+
+def _seq(a, b):
+    out, (y, m) = [], a
+    while (y, m) <= b:
+        out.append((y, m))
+        m += 1
+        if m > 12:
+            y, m = y + 1, 1
+    return out
+
+
+MONTHS = _seq(M_START, M_END)
+YEARS = (2024, 2025, 2026)
 COLOR = {'2024': '#A5A5A5', '2025': '#0070C0', '2026': '#FF0000'}
 NUM_RE = re.compile(r'([\d.]+)\s*三元')
 LFP_RE = re.compile(r'([\d.]+)\s*铁锂')
 
+# 则言《锂电排产-则言月初》正极区：行 30~45，个别行 col3 名称为空（第 40 行 = BP（NCM））
+POS_FALLBACK = ['D（LFP）', 'Y（LFP）', 'L（LFP）', 'W（LFP）', 'R（LFP）',
+                'RB（NCM）', 'B（NCM）', 'D（NCM）', 'C（NCM）', 'RX（NCM）',
+                'BP（NCM）', 'G（LFP）', 'YS（LFP）', '新增邦普（LFP）',
+                '新增富临（LFP）', '新增协鑫（LFP）']
 
-# ---------------------------------------------------------------- 读源表
-def open_workbook(path, pwd):
-    """加密 xls：先解密到临时文件再交给 xlrd（xlrd 不支持带密码打开）。"""
-    f = open(path, 'rb')
-    of = msoffcrypto.OfficeFile(f)
-    if not of.is_encrypted():
-        f.close()
-        return xlrd.open_workbook(path)
-    of.load_key(password=pwd)
-    tmp = tempfile.NamedTemporaryFile(suffix='.xls', delete=False)
-    with open(tmp.name, 'wb') as g:
-        of.decrypt(g)
-    f.close()
-    wb = xlrd.open_workbook(tmp.name)          # 一次性读入内存
-    try:
-        os.unlink(tmp.name)
-    except Exception:
-        pass
-    return wb
+# 电池六家：源表只给字母代号，补中文名（C/B 两行源表已带全名）
+BAT_NAME = {'C': '宁德时代', 'B': '比亚迪', 'E': '亿纬锂能', 'G': '国轩高科',
+            'Z': '中创新航', 'R': '瑞浦兰钧'}
+
+# readdata 碳酸锂代号 → 则言《锂盐》表企业名
+LC_MAP = {
+    'T（LC）': '天齐锂业',
+    'G（LC）': '赣锋锂业',
+    'Z（LC）': '志存锂业',
+    'L（LC）': '蓝科（盐湖股份）',
+    'Y（LC）': '永兴特钢',
+    'S（LC）': '盛新锂能',
+    'J（LC）': '九岭锂业',
+    'H（LC）': '华友锂业',
+    '天宜（不含奉新时代）（LC）': '天宜锂业',
+    '中矿（LC）': '中矿资源',
+}
 
 
+# ---------------------------------------------------------------- 通用工具
 def clean(v):
     if v is None:
         return None
     if isinstance(v, (int, float)) and not isinstance(v, bool):
-        if v != v:
-            return None
-        return float(v)
+        return None if v != v else float(v)
     s = str(v).strip()
     if s in ('', '/', '-', '—', '#N/A', '#VALUE!', '#DIV/0!'):
         return None
@@ -116,54 +132,8 @@ def txt(v):
     return re.sub(r'\s+', ' ', str(v)).strip() if v is not None else ''
 
 
-def read_paichan(wb):
-    sh = wb.sheet_by_name('排产')
-    blocks, cur = [], None
-    for r in range(2, sh.nrows):
-        seg = txt(sh.cell_value(r, 0))
-        name = txt(sh.cell_value(r, 1))
-        if not name:
-            continue
-        if seg:
-            cur = {'seg': seg, 'rows': []}
-            blocks.append(cur)
-        if cur is None:
-            continue
-        note = txt(sh.cell_value(r, 28)) if sh.ncols > 28 else ''
-        if '合计' in name:
-            cur['total'] = {
-                'name': name, 'note': note,
-                'raw': [sh.cell_value(r, 2 + i) for i in range(NMON)],
-            }
-            continue
-        row = {'name': name, 'note': note}
-        if '三元' in txt(sh.cell_value(r, 2)) or '铁锂' in txt(sh.cell_value(r, 2)) \
-                or any('三元' in txt(sh.cell_value(r, 2 + i)) for i in range(3)):
-            row['kind'] = 'battery'
-            row['tri'], row['lfp'] = [], []
-            for i in range(NMON):
-                a, b = parse_pair(sh.cell_value(r, 2 + i))
-                row['tri'].append(a)
-                row['lfp'].append(b)
-        else:
-            row['kind'] = 'num'
-            row['vals'] = [clean(sh.cell_value(r, 2 + i)) for i in range(NMON)]
-        cur['rows'].append(row)
-    return blocks
-
-
-# ---------------------------------------------------------------- 数据工具
-def by_year(vals, year):
-    """26 月序列 → 12 槽（按月）该年数组，缺月 None。"""
-    out = [None] * 12
-    for i, (y, m) in enumerate(MONTHS):
-        if y == year:
-            out[m - 1] = vals[i]
-    return out
-
-
 def rnd(v, nd):
-    """四舍五入（半进一，与 Excel 一致；Python 内置 round 是银行家舍入，9.85→9.8 会错）。"""
+    """四舍五入（半进一，与 Excel 一致；内置 round 是银行家舍入，9.85→9.8 会错）。"""
     if v is None:
         return None
     d = Decimal(str(v)).quantize(Decimal('1' if not nd else '1.' + '0' * nd),
@@ -171,9 +141,29 @@ def rnd(v, nd):
     return int(d) if not nd else float(d)
 
 
-def ser(name, data, marker='none', width=1.5, dash='solid', smooth=False):
+def pct_mom(cur, prev):
+    if cur is None or prev in (None, 0):
+        return None
+    return rnd((cur / prev - 1) * 100, 1)
+
+
+def by_year(md, year):
+    """{(y,m): v} → 该年 12 槽数组。"""
+    out = [None] * 12
+    for (y, m), v in md.items():
+        if y == year:
+            out[m - 1] = v
+    return out
+
+
+def ser(name, data, marker='none', width=1.5, dash='solid'):
     return {'name': name, 'color': COLOR[name], 'width': width, 'dash': dash,
-            'smooth': smooth, 'marker': marker, 'data': data}
+            'smooth': False, 'marker': marker, 'data': data}
+
+
+def yrs_series(md, nd, marker_year=2026, years=YEARS):
+    return [ser('%d' % y, [rnd(v, nd) for v in by_year(md, y)],
+                marker='circle' if y == marker_year else 'none') for y in years]
 
 
 def chart(key, title, group, series, nd, unit='', sub=None, tbl=None):
@@ -186,82 +176,229 @@ def chart(key, title, group, series, nd, unit='', sub=None, tbl=None):
     return c
 
 
-def sum_rows(rows, field, idx=None):
-    """按行求和（field='tri'/'lfp'/'vals'），返回 26 月列表。"""
-    n = NMON
-    out = [0.0] * n
-    seen = [False] * n
-    for r in rows:
-        arr = r[field]
-        for i in range(n):
-            v = arr[i] if idx is None else (arr[i] if arr[i] is not None else None)
-            if v is None:
-                continue
-            out[i] += v
-            seen[i] = True
-    return [out[i] if seen[i] else None for i in range(n)]
+def metric(cur, prev, nd):
+    return {'labels': ['2026-11', '2026-10', '环比%'], 'kinds': ['val', 'val', 'pct'],
+            'values': [rnd(cur, nd), rnd(prev, nd), pct_mom(cur, prev)]}
 
 
-def pct_mom(cur, prev):
-    if cur is None or prev in (None, 0):
-        return None
-    return rnd((cur / prev - 1) * 100, 1)
+# ---------------------------------------------------------------- 源 ①：则言排产
+def load_zy(path):
+    wb = openpyxl.load_workbook(path, data_only=True)
+    ws = wb['锂电排产-则言月初']
+    mcols = {}
+    for c in range(1, ws.max_column + 1):
+        v = ws.cell(2, c).value
+        if isinstance(v, datetime.datetime):
+            mcols[(v.year, v.month)] = c
+    note_col = ws.max_column
+
+    def cell(r, m):
+        c = mcols.get(m)
+        return ws.cell(r, c).value if c else None
+
+    def note(r):
+        return txt(ws.cell(r, note_col).value)
+
+    bat, pos, tot, pos_tot = [], [], None, None
+    pos_idx = 0
+    for r in range(3, ws.max_row + 1):
+        raw3 = ws.cell(r, 3).value
+        lines = [txt(x) for x in str(raw3).split('\n') if txt(x)] if raw3 else []
+        label = lines[-1] if lines else ''          # 「瑞浦兰钧\nR（GWH）」→ 取末行代号
+        firm = txt(ws.cell(r, 2).value) or (lines[0] if len(lines) > 1 else '')
+        if label in ('合计（GWH）',):
+            tot = {'raw': {m: cell(r, m) for m in mcols}}
+            continue
+        if label in ('合计（万吨）',):
+            pos_tot = {'raw': {m: cell(r, m) for m in mcols}, 'note': note(r)}
+            continue
+        if '（GWH）' in label.upper() and '合计' not in label:
+            row = {'code': label, 'name': firm, 'note': note(r), 'tri': {}, 'lfp': {}}
+            for m in mcols:
+                a, b = parse_pair(cell(r, m))
+                if a is not None:
+                    row['tri'][m] = a
+                if b is not None:
+                    row['lfp'][m] = b
+            bat.append(row)
+            continue
+        # 正极区：名称含（LFP）/（NCM）；第 40 行名称为空
+        if ('（LFP）' in label) or ('（NCM）' in label) or (
+                not label and 30 <= r <= 45):
+            name = label or (POS_FALLBACK[pos_idx] if pos_idx < len(POS_FALLBACK) else '未命名')
+            row = {'code': name, 'name': name, 'note': note(r), 'vals': {}}
+            for m in mcols:
+                v = clean(cell(r, m))
+                if v is not None:
+                    row['vals'][m] = v
+            pos.append(row)
+            pos_idx += 1
+    return {'bat': bat, 'pos': pos, 'bat_total': tot, 'pos_total': pos_tot,
+            'months': sorted(mcols)}
 
 
-# ---------------------------------------------------------------- 数据集 1：下游排产
-def build_sched(blocks):
-    bat = next(b for b in blocks if b['seg'] == '电池')
-    pos = next(b for b in blocks if b['seg'] == '正极')
+def load_ls(path):
+    """则言《锂盐-则言-（月）》：碳酸锂分企业月度产量（吨），2023-01 起。"""
+    wb = openpyxl.load_workbook(path, data_only=True)
+    ws = wb['锂盐-则言-（月）']
+    cols = {}
+    for c in range(4, ws.max_column + 1):
+        v = ws.cell(5, c).value
+        if isinstance(v, (int, float)) and 30000 < v < 80000:
+            d = datetime.date(1899, 12, 30) + datetime.timedelta(days=int(v))
+            cols[(d.year, d.month)] = c
+    out = {}
+    for r in range(6, ws.max_row + 1):
+        n = txt(ws.cell(r, 2).value)
+        if not n or n == '合计':
+            continue
+        out[n] = {m: clean(ws.cell(r, c).value) for m, c in cols.items()
+                  if clean(ws.cell(r, c).value) is not None}
+    return out, sorted(cols)
 
-    six_tri = sum_rows(bat['rows'], 'tri')
-    six_lfp = sum_rows(bat['rows'], 'lfp')
-    tot_tri_c = None
-    # 正极合计（万吨文本）
-    p_lfp, p_tri = [], []
-    for v in pos['total']['raw']:
-        a, b = parse_pair(v)      # parse_pair 返回 (三元, 铁锂)
-        p_tri.append(a)
-        p_lfp.append(b)
-    # 电池 全样本合计（GWh 文本）
-    all_tri, all_lfp = [], []
-    for v in bat['total']['raw']:
+
+# ---------------------------------------------------------------- 源 ②：readdata（加密）
+def open_rd(path, pwd):
+    f = open(path, 'rb')
+    of = msoffcrypto.OfficeFile(f)
+    if not of.is_encrypted():
+        f.close()
+        return xlrd.open_workbook(path)
+    of.load_key(password=pwd)
+    tmp = tempfile.NamedTemporaryFile(suffix='.xls', delete=False)
+    with open(tmp.name, 'wb') as g:
+        of.decrypt(g)
+    f.close()
+    wb = xlrd.open_workbook(tmp.name)
+    try:
+        os.unlink(tmp.name)
+    except Exception:
+        pass
+    return wb
+
+
+def load_rd(path, pwd):
+    wb = open_rd(path, pwd)
+    sh = wb.sheet_by_name('排产')
+    months = [(2024 + (9 + i) // 12, (9 + i) % 12 + 1) for i in range(26)]
+
+    def cell(r, i):
+        return sh.cell_value(r, 2 + i)
+
+    lc, mat, bat_total, pos_extra = [], [], None, []
+    for r in range(1, sh.nrows):
+        label = txt(sh.cell_value(r, 1))
+        note = txt(sh.cell_value(r, sh.ncols - 1))
+        if '合计（GWH）' in label:
+            bat_total = {'raw': {m: cell(r, i) for i, m in enumerate(months)}}
+            continue
+        if '万华' in label:
+            row = {'code': label, 'note': note, 'vals': {}}
+            for i, m in enumerate(months):
+                v = clean(cell(r, i))
+                if v is not None:
+                    row['vals'][m] = v
+            pos_extra.append(row)
+            continue
+        if ('（LC）' in label) or ('智利' in label):
+            row = {'code': label, 'note': note, 'vals': {}}
+            for i, m in enumerate(months):
+                v = clean(cell(r, i))
+                if v is not None:
+                    row['vals'][m] = v
+            lc.append(row)
+            continue
+        if ('（FP）' in label or '（NCM)' in label or label in ('T', 'X', 'D（6F）', 'P', 'B')):
+            row = {'code': label, 'note': note, 'vals': {}}
+            for i, m in enumerate(months):
+                v = clean(cell(r, i))
+                if v is not None:
+                    row['vals'][m] = v
+            mat.append(row)
+    # 归属分组：前驱体 4 行 → 电解液 3 行 → 负极 2 行（源表顺序）
+    order = ['前驱体', '前驱体', '前驱体', '前驱体', '电解液', '电解液', '电解液', '负极', '负极']
+    for i, row in enumerate(mat):
+        row['seg'] = order[i] if i < len(order) else '其他'
+    return {'lc': lc, 'mat': mat, 'bat_total': bat_total,
+            'pos_extra': pos_extra, 'months': months}
+
+
+# ---------------------------------------------------------------- 合并
+def merge_lc(zy, ls, rd):
+    """碳酸锂：2023-01~2024-09 取则言锂盐表，2024-10 起取 readdata。"""
+    ls_map, ls_months = ls
+    seam = (2024, 10)
+    out = []
+    for row in rd['lc']:
+        code = row['code']
+        if code.startswith('S（智利出口中国）'):
+            out.append({'code': code, 'name': '智利出口中国', 'note': row['note'],
+                        'vals': dict(row['vals']), 'seg': '进口参考'})
+            continue
+        zname = LC_MAP.get(code)
+        md = {}
+        if zname and zname in ls_map:
+            md.update({m: v for m, v in ls_map[zname].items() if m < seam})
+        md.update(row['vals'])          # 2024-10 起以 readdata 为准
+        out.append({'code': code, 'name': zname or code, 'note': row['note'],
+                    'vals': md, 'seg': '国内'})
+    return out
+
+
+def six_sum(bat, field):
+    md = {}
+    for m in MONTHS:
+        tot, hit = 0.0, False
+        for row in bat:
+            v = row[field].get(m)
+            if v is not None:
+                tot += v
+                hit = True
+        if hit:
+            md[m] = tot
+    return md
+
+
+# ---------------------------------------------------------------- DS1 汇总
+def build_sched(zy, rd):
+    six_tri = six_sum(zy['bat'], 'tri')
+    six_lfp = six_sum(zy['bat'], 'lfp')
+    p_tri, p_lfp = {}, {}
+    for m, v in zy['pos_total']['raw'].items():
         a, b = parse_pair(v)
-        all_tri.append(a)
-        all_lfp.append(b)
+        if a is not None:
+            p_tri[m] = a
+        if b is not None:
+            p_lfp[m] = b
 
-    def idx(y, m):
-        return MONTHS.index((y, m))
-
-    i9, i10, i11 = idx(2026, 9), idx(2026, 10), idx(2026, 11)
-    i8 = idx(2026, 8)
-
-    six9, six10, six11 = six_tri[i9], six_tri[i10], six_tri[i11]
-    lfp9, lfp10, lfp11 = six_lfp[i9], six_lfp[i10], six_lfp[i11]
-    p_tri9, p_tri10, p_tri11 = p_tri[i9], p_tri[i10], p_tri[i11]
-    p_lfp9, p_lfp10, p_lfp11 = p_lfp[i9], p_lfp[i10], p_lfp[i11]
+    idx = [(2026, 8), (2026, 9), (2026, 10), (2026, 11)]
+    c8, c9, c10, c11 = idx
 
     cols = []
-    for i, (lab, grp) in enumerate([('2026/9/1', '电池 六家（GWh）'),
-                                    ('2026/10/1', '电池 六家（GWh）'),
-                                    ('2026/11/1', '电池 六家（GWh）'),
-                                    ('2026/9/1', '正极 全样本（万吨）'),
-                                    ('2026/10/1', '正极 全样本（万吨）'),
-                                    ('2026/11/1', '正极 全样本（万吨）')]):
-        cols.append({'key': 'c%d' % i, 'label': lab, 'group': grp})
+    for lab, grp in [('2026/9/1', '电池 六家（GWh）'), ('2026/10/1', '电池 六家（GWh）'),
+                     ('2026/11/1', '电池 六家（GWh）'), ('2026/9/1', '正极 全样本（万吨）'),
+                     ('2026/10/1', '正极 全样本（万吨）'), ('2026/11/1', '正极 全样本（万吨）')]:
+        cols.append({'key': 'c%d' % len(cols), 'label': lab, 'group': grp})
 
     summary = {
         'columns': cols,
         'rows': {
-            '三元合计': [rnd(six9, 1), rnd(six10, 1), rnd(six11, 1),
-                     rnd(p_tri9, 1), rnd(p_tri10, 1), rnd(p_tri11, 1)],
-            '铁锂合计': [rnd(lfp9, 1), rnd(lfp10, 1), rnd(lfp11, 1),
-                     rnd(p_lfp9, 1), rnd(p_lfp10, 1), rnd(p_lfp11, 1)],
-            '铁锂增速%': [pct_mom(lfp9, six_lfp[i8]), pct_mom(lfp10, lfp9), pct_mom(lfp11, lfp10),
-                      pct_mom(p_lfp9, p_lfp[i8]), pct_mom(p_lfp10, p_lfp9),
-                      pct_mom(p_lfp11, p_lfp10)],
-            '三元增速%': [pct_mom(six9, six_tri[i8]), pct_mom(six10, six9), pct_mom(six11, six10),
-                      pct_mom(p_tri9, p_tri[i8]), pct_mom(p_tri10, p_tri9),
-                      pct_mom(p_tri11, p_tri10)],
+            '三元合计': [rnd(six_tri.get(c9), 1), rnd(six_tri.get(c10), 1), rnd(six_tri.get(c11), 1),
+                     rnd(p_tri.get(c9), 1), rnd(p_tri.get(c10), 1), rnd(p_tri.get(c11), 1)],
+            '铁锂合计': [rnd(six_lfp.get(c9), 1), rnd(six_lfp.get(c10), 1), rnd(six_lfp.get(c11), 1),
+                     rnd(p_lfp.get(c9), 1), rnd(p_lfp.get(c10), 1), rnd(p_lfp.get(c11), 1)],
+            '铁锂增速%': [pct_mom(six_lfp.get(c9), six_lfp.get(c8)),
+                      pct_mom(six_lfp.get(c10), six_lfp.get(c9)),
+                      pct_mom(six_lfp.get(c11), six_lfp.get(c10)),
+                      pct_mom(p_lfp.get(c9), p_lfp.get(c8)),
+                      pct_mom(p_lfp.get(c10), p_lfp.get(c9)),
+                      pct_mom(p_lfp.get(c11), p_lfp.get(c10))],
+            '三元增速%': [pct_mom(six_tri.get(c9), six_tri.get(c8)),
+                      pct_mom(six_tri.get(c10), six_tri.get(c9)),
+                      pct_mom(six_tri.get(c11), six_tri.get(c10)),
+                      pct_mom(p_tri.get(c9), p_tri.get(c8)),
+                      pct_mom(p_tri.get(c10), p_tri.get(c9)),
+                      pct_mom(p_tri.get(c11), p_tri.get(c10))],
         },
         'rowOrder': ['三元合计', '铁锂合计', '铁锂增速%', '三元增速%'],
         'rowMeta': {'铁锂增速%': {'signed': True, 'suffix': '%'},
@@ -270,137 +407,172 @@ def build_sched(blocks):
         'unit': 'GWh / 万吨', 'nd': 1,
     }
 
-    charts = []
-    # 1) 头部六家三元电池
-    charts.append(chart(
-        'sched-bat-tri', '头部六家三元电池排产（GWh）', '电池 六家（GWh·月）',
-        [ser('%d' % y, [rnd(v, 2) for v in by_year(six_tri, y)],
-             marker='circle' if y == 2026 else 'none') for y in (2024, 2025, 2026)],
-        2, 'GWh',
-        tbl={'labels': ['2026-11', '2026-10', '环比%'],
-             'kinds': ['val', 'val', 'pct'],
-             'values': [rnd(six11, 2), rnd(six10, 2), pct_mom(six11, six10)]}))
-    # 2) 头部六家铁锂电池
-    charts.append(chart(
-        'sched-bat-lfp', '头部六家铁锂电池排产（GWh）', '电池 六家（GWh·月）',
-        [ser('%d' % y, [rnd(v, 1) for v in by_year(six_lfp, y)],
-             marker='circle' if y == 2026 else 'none') for y in (2024, 2025, 2026)],
-        1, 'GWh',
-        tbl={'labels': ['2026-11', '2026-10', '环比%'],
-             'kinds': ['val', 'val', 'pct'],
-             'values': [rnd(lfp11, 1), rnd(lfp10, 1), pct_mom(lfp11, lfp10)]}))
-    # 3) 三元正极
-    charts.append(chart(
-        'sched-pos-tri', '三元正极材料排产（万吨）', '正极 全样本（万吨·月）',
-        [ser('%d' % y, [rnd(v, 2) for v in by_year(p_tri, y)],
-             marker='circle' if y == 2026 else 'none') for y in (2024, 2025, 2026)],
-        2, '万吨',
-        tbl={'labels': ['2026-11', '2026-10', '环比%'],
-             'kinds': ['val', 'val', 'pct'],
-             'values': [rnd(p_tri11, 2), rnd(p_tri10, 2), pct_mom(p_tri11, p_tri10)]}))
-    # 4) 磷酸铁锂正极
-    charts.append(chart(
-        'sched-pos-lfp', '磷酸铁锂正极材料排产（万吨）', '正极 全样本（万吨·月）',
-        [ser('%d' % y, [rnd(v, 2) for v in by_year(p_lfp, y)],
-             marker='circle' if y == 2026 else 'none') for y in (2024, 2025, 2026)],
-        2, '万吨',
-        tbl={'labels': ['2026-11', '2026-10', '环比%'],
-             'kinds': ['val', 'val', 'pct'],
-             'values': [rnd(p_lfp11, 2), rnd(p_lfp10, 2), pct_mom(p_lfp11, p_lfp10)]}))
+    charts = [
+        chart('sched-bat-tri', '头部六家三元电池排产（GWh）', '电池 六家（GWh·月）',
+              yrs_series(six_tri, 2), 2, 'GWh',
+              tbl=metric(six_tri.get(c11), six_tri.get(c10), 2)),
+        chart('sched-bat-lfp', '头部六家铁锂电池排产（GWh）', '电池 六家（GWh·月）',
+              yrs_series(six_lfp, 1), 1, 'GWh',
+              tbl=metric(six_lfp.get(c11), six_lfp.get(c10), 1)),
+        chart('sched-pos-tri', '三元正极材料排产（万吨）', '正极 全样本（万吨·月）',
+              yrs_series(p_tri, 2), 2, '万吨',
+              tbl=metric(p_tri.get(c11), p_tri.get(c10), 2)),
+        chart('sched-pos-lfp', '磷酸铁锂正极材料排产（万吨）', '正极 全样本（万吨·月）',
+              yrs_series(p_lfp, 2), 2, '万吨',
+              tbl=metric(p_lfp.get(c11), p_lfp.get(c10), 2)),
+    ]
+
+    all_lfp = None
+    if rd.get('bat_total'):
+        all_lfp = parse_pair(rd['bat_total']['raw'].get((2026, 11)))[1]
 
     note = '｜'.join([
-        '口径：源表《readdata-10.xls·排产》2026-11 月初版本（数据为上下游综合评估的预测值）',
-        '电池按「头部六家」（C/B/E/G/Z/瑞浦兰钧）加总，与源表「合计」行（全样本，2026-11 铁锂 246 / 三元 54 GWh）'
-        '口径不同——图与表统一用六家，勿与全样本互换',
-        '正极取源表「合计」行（全样本，万吨；与《磷酸铁锂》明细表 2026-09 的 61.33 万吨对得上），'
-        '而源表正极分企业仅列 11 家铁锂（2026-11 合计 43.75 万吨），差额为未列名企业',
-        '增速 = 环比（同一源表版本相邻两月），历史月会被源表回溯修订，'
-        '与上期已发布版本算出的环比可能差 0.5 个点左右',
-        '⚠ 源表历史起于 2024-10，2024 年曲线仅 10~12 月三点，不可用于季节形状比较',
+        '口径：则言排产（2026-11 月初版本，上下游综合评估的预测值），历史回溯至 2024-01',
+        '电池按「头部六家」（C/B/E/G/Z/瑞浦兰钧）加总，与源表「合计」行（全样本，2026-11 铁锂 %s GWh）'
+        '口径不同——图与表统一用六家，勿与全样本互换' % (rnd(all_lfp, 0) if all_lfp else '246'),
+        '正极取源表「合计」行（全样本万吨），而分企业仅列 11 家铁锂（2026-11 合计 43.75 万吨），'
+        '差额为未列名企业',
+        '增速 = 环比（同一源表版本相邻两月），历史月会被源表回溯修订',
+        '⚠ 2024 年起为完整 12 个月，季节形状可与 2025/2026 直接对比（此前版本 2024 只有 Q4 三点）',
     ])
-
     return {
         'id': 'lc_sched', 'name': '下游排产',
         'axes': [[str(i + 1) for i in range(12)]],
         'asOf': '2026-11-01',
         'charts': charts, 'summary': summary, 'note': note,
         'unit': 'GWh / 万吨',
-        '_six9': six9, '_six11': six11, '_all11': all_lfp[i11],
     }
 
 
-# ---------------------------------------------------------------- 数据集 2：分企业排产
-SEG_ORDER = [
-    ('电池', '电池分企业（GWh·月）', 'GWh', 2, 1, 'bat'),
-    ('正极', '正极·磷酸铁锂（吨·月）', '吨', 0, 0, 'pos_lfp'),
-    ('正极', '正极·三元（吨·月）', '吨', 0, 0, 'pos_ncm'),
-    ('碳酸锂', '碳酸锂（吨·月）', '吨', 0, 0, 'lc'),
-    ('前驱体', '前驱体（吨·月）', '吨', 0, 0, 'pre'),
-    ('电解液', '电解液（吨·月）', '吨', 0, 0, 'elec'),
-    ('负极', '负极（吨·月）', '吨', 0, 0, 'anode'),
-]
-
-
-def seg_of_pos(name):
-    u = name.upper()
-    if 'NCM' in u:
-        return 'pos_ncm'
-    return 'pos_lfp'
-
-
-def build_sched_co(blocks):
+# ---------------------------------------------------------------- DS2 电池分企业
+def build_bat(zy):
     charts = []
-    for seg, gtitle, unit, nd, nd_chart, tag in SEG_ORDER:
-        blk = next((b for b in blocks if b['seg'] == seg), None)
-        if not blk:
-            continue
-        for r in blk['rows']:
-            if seg == '正极' and seg_of_pos(r['name']) != tag:
-                continue
-            if r['kind'] == 'battery':
-                vals = [None if (a is None and b is None) else round((a or 0) + (b or 0), 2)
-                        for a, b in zip(r['tri'], r['lfp'])]
-                sub = r['note'] or None
-                if sub and len(sub) > 90:
-                    sub = sub[:88] + '…'
-                if r['tri'][-1] is not None and r['lfp'][-1] is not None:
-                    sub = ('%s（11月：三元 %.2f + 铁锂 %.2f GWh）'
-                           % (('' if not sub else sub + '｜'),
-                              r['tri'][-1] or 0, r['lfp'][-1] or 0))
-            else:
-                vals = r['vals']
-                sub = r['note'] or None
-            cur, prev = vals[-1], vals[-2]
-            key = '%s-%d-%s' % (tag, len(charts), re.sub(r'\W+', '', r['name'])[:12])
-            charts.append(chart(
-                key, r['name'].replace('（GWH）', '（GWh）'), gtitle,
-                [ser('%d' % y, [rnd(v, nd_chart) for v in by_year(vals, y)],
-                     marker='circle' if y == 2026 else 'none') for y in (2025, 2026)],
-                nd_chart, unit, sub=sub,
-                tbl={'labels': ['2026-11', '2026-10', '环比%'],
-                     'kinds': ['val', 'val', 'pct'],
-                     'values': [rnd(cur, nd_chart), rnd(prev, nd_chart),
-                                pct_mom(cur, prev)]}))
+    for i, row in enumerate(zy['bat']):
+        code = row['code'].replace('（GWH）', '').replace('（GWh）', '').strip()
+        firm = row['name'] or BAT_NAME.get(code, '')
+        vals = {m: (row['tri'].get(m) or 0) + (row['lfp'].get(m) or 0)
+                for m in set(row['tri']) | set(row['lfp'])}
+        cur, prev = vals.get((2026, 11)), vals.get((2026, 10))
+        sub = row['note'] or None
+        if sub and len(sub) > 90:
+            sub = sub[:88] + '…'
+        t, l = row['tri'].get((2026, 11)), row['lfp'].get((2026, 11))
+        if t is not None and l is not None:
+            sub = '%s（11月：三元 %.2f + 铁锂 %.2f GWh）' % (
+                (sub + '｜') if sub else '', t, l)
+        charts.append(chart(
+            'bat-%d' % i, '%s（%s）' % (firm, code), '电池分企业（GWh·月）',
+            yrs_series(vals, 2), 2, 'GWh', sub=sub, tbl=metric(cur, prev, 2)))
 
     note = '｜'.join([
-        '口径：源表《readdata-10.xls·排产》分企业月度排产（2026-11 月初版本，预测值）',
-        '电池企业为「三元+铁锂」合计（GWh）；正极/碳酸锂/前驱体/电解液/负极为吨',
-        '仅列源表列示企业：正极铁锂 11 家 2026-11 合计 43.75 万吨，源表「合计」行（全样本）为 62.41 万吨，'
-        '碳酸锂列示企业合计与源表「国内合计」亦有缺口——差额为未列名企业，勿把列示合计当全行业',
-        '企业名沿用源表字母代码（C=宁德时代、B=比亚迪、E=亿纬、G=国轩、Z=中创新航、瑞浦兰钧），'
-        '正极各行字母为源表自用代号，含义以卡片副标题的「备注」为准',
-        '「新增富临」11 月源表备注「未回复」、当月留空，图上是断点不是 0',
-        '2024 年只有 10~12 月，故分企业图只画 2025 / 2026 两年',
+        '口径：则言排产《锂电排产-则言月初》电池分企业，2024-01 ~ 2026-11（预测值）',
+        '纵轴为该企业「三元 + 铁锂」合计（GWh）；卡片副标题为源表「备注」原话 + 11 月拆分',
+        '六家合计 2026-11 = 175.3 GWh，而源表「合计」行（全样本）= 246 GWh，差额为未列名企业',
+        '企业代码：C=宁德时代、B=比亚迪、E=亿纬锂能、G=国轩高科、Z=中创新航、R=瑞浦兰钧',
     ])
-    return {
-        'id': 'lc_sched_co', 'name': '分企业排产',
-        'axes': [[str(i + 1) for i in range(12)]],
-        'asOf': '2026-11-01',
-        'charts': charts, 'note': note, 'unit': 'GWh / 吨',
-    }
+    return {'id': 'lc_sched_bat', 'name': '电池分企业',
+            'axes': [[str(i + 1) for i in range(12)]], 'asOf': '2026-11-01',
+            'charts': charts, 'note': note, 'unit': 'GWh'}
+
+
+# ---------------------------------------------------------------- DS3 正极分企业
+def pos_group(name):
+    return '正极·三元（吨·月）' if 'NCM' in name.upper() else '正极·磷酸铁锂（吨·月）'
+
+
+def build_pos(zy, rd):
+    rows = [dict(r) for r in zy['pos']]
+    # 则言月初表未列「新增万华」，用 readdata 补（2025-01 起）
+    for r in rd.get('pos_extra', []):
+        rows.append({'code': '新增万华（LFP）', 'name': '新增万华',
+                     'note': (r['note'] + '｜则言月初表未列示，2025-01 起') if r['note']
+                             else '则言月初表未列示，2025-01 起',
+                     'vals': dict(r['vals'])})
+    charts = []
+    for i, row in enumerate(rows):
+        name = row['code']
+        vals = row['vals']
+        cur, prev = vals.get((2026, 11)), vals.get((2026, 10))
+        sub = row['note'] or None
+        if sub and len(sub) > 90:
+            sub = sub[:88] + '…'
+        charts.append(chart(
+            'pos-%d' % i, name.replace('（LFP）', '（磷酸铁锂）').replace('（NCM）', '（三元）'),
+            pos_group(name), yrs_series(vals, 0), 0, '吨',
+            sub=sub, tbl=metric(cur, prev, 0)))
+
+    note = '｜'.join([
+        '口径：则言排产《锂电排产-则言月初》正极分企业，2024-01 ~ 2026-11（预测值，吨）',
+        '磷酸铁锂 11 家 + 三元 6 家；企业代号为源表自用字母，卡片副标题为源表「备注」原话',
+        '列示 11 家铁锂 2026-11 合计 43.75 万吨，源表「合计」行（全样本）为 62.41 万吨——'
+        '差额为未列名企业，勿把列示合计当全行业',
+        '「新增富临」11 月源表备注「未回复」、当月留空，图上是断点不是 0',
+    ])
+    return {'id': 'lc_sched_pos', 'name': '正极分企业',
+            'axes': [[str(i + 1) for i in range(12)]], 'asOf': '2026-11-01',
+            'charts': charts, 'note': note, 'unit': '吨'}
+
+
+# ---------------------------------------------------------------- DS4 碳酸锂分企业
+def build_lc(rows, rd):
+    # 国内企业在前，「智利出口中国」放最后（性质是进口节奏参考）
+    rows = [r for r in rows if r['seg'] != '进口参考'] + \
+           [r for r in rows if r['seg'] == '进口参考']
+    charts = []
+    for i, row in enumerate(rows):
+        vals = row['vals']
+        cur, prev = vals.get((2026, 11)), vals.get((2026, 10))
+        grp = '碳酸锂·进口参考（吨·月）' if row['seg'] == '进口参考' else '碳酸锂分企业（吨·月）'
+        sub = row['note'] or None
+        if sub and len(sub) > 90:
+            sub = sub[:88] + '…'
+        charts.append(chart(
+            'lc-%d' % i, '%s  %s' % (row['name'], row['code'].replace('（LC）', ''))
+            if row['seg'] != '进口参考' else '智利出口中国（吨）',
+            grp, yrs_series(vals, 0), 0, '吨', sub=sub, tbl=metric(cur, prev, 0)))
+
+    note = '｜'.join([
+        '口径：碳酸锂分企业月度排产（吨）——2023-01~2024-09 取则言《锂盐-则言-（月）》，'
+        '2024-10 起取 readdata 排产表；两源在 2024-10 接缝处逐家对齐（华友差 100 吨）',
+        'Z = 志存（含西海/原新疆志存），Y = 永兴特钢，H = 华友，S = 盛新，J = 九岭，L = 蓝科，'
+        'T = 天齐，G = 赣锋，另有天宜（不含奉新时代）、中矿',
+        '「智利出口中国」为智利发往中国的锂盐量，非国内产量，只作进口节奏参考，量级不可直接比',
+        '列示 10 家不等于全国：源表「国内合计」2026-11 为 12.18 万吨，列示企业合计明显更小',
+    ])
+    return {'id': 'lc_sched_lc', 'name': '碳酸锂分企业',
+            'axes': [[str(i + 1) for i in range(12)]], 'asOf': '2026-11-01',
+            'charts': charts, 'note': note, 'unit': '吨'}
+
+
+# ---------------------------------------------------------------- DS5 其他材料
+def build_mat(rd):
+    charts = []
+    for i, row in enumerate(rd['mat']):
+        vals = row['vals']
+        cur, prev = vals.get((2026, 11)), vals.get((2026, 10))
+        sub = row['note'] or None
+        if sub and len(sub) > 90:
+            sub = sub[:88] + '…'
+        charts.append(chart(
+            'mat-%d' % i, '%s（%s）' % (row['code'], row['seg']),
+            '%s（吨·月）' % row['seg'], yrs_series(vals, 0), 0, '吨',
+            sub=sub, tbl=metric(cur, prev, 0)))
+
+    note = '｜'.join([
+        '口径：readdata 排产表 前驱体 / 电解液 / 负极，2024-10 ~ 2026-11（预测值，吨）',
+        '则言《锂电排产-则言月初》这三块只有文字备注、没有数值，故历史只能到 2024-10，'
+        '2024 曲线仍为 Q4 三点，不可用于季节形状比较',
+        '企业代号沿用源表：前驱体 T/H/Z/B，电解液 T/X/D（6F），负极 P/B',
+    ])
+    return {'id': 'lc_sched_co', 'name': '其他材料',
+            'axes': [[str(i + 1) for i in range(12)]], 'asOf': '2026-11-01',
+            'charts': charts, 'note': note, 'unit': '吨'}
 
 
 # ---------------------------------------------------------------- 落盘
+SCHED_IDS = ['lc_sched', 'lc_sched_bat', 'lc_sched_pos', 'lc_sched_lc', 'lc_sched_co']
+
+
 def write_all(ds_list):
     meta_path = os.path.join(DATA, 'meta.json')
     order = []
@@ -410,9 +582,9 @@ def write_all(ds_list):
                 order = [d['id'] for d in json.load(f).get('datasets', [])]
         except Exception:
             pass
-    for d in ds_list:
-        if d['id'] not in order:
-            order.append(d['id'])
+    pos = order.index('lc_sched') if 'lc_sched' in order else len(order)
+    order = [x for x in order if x not in SCHED_IDS]
+    order[pos:pos] = SCHED_IDS
 
     all_ds = []
     for did in order:
@@ -429,14 +601,13 @@ def write_all(ds_list):
 
     stamp = datetime.datetime.now().isoformat(timespec='seconds')
     for d in ds_list:
-        d = {k: v for k, v in d.items() if not k.startswith('_')}
-        p = os.path.join(DATA, d['id'] + '.json')
+        dd = {k: v for k, v in d.items() if not k.startswith('_')}
+        p = os.path.join(DATA, dd['id'] + '.json')
         with open(p, 'w', encoding='utf-8') as f:
-            json.dump(d, f, ensure_ascii=False, separators=(',', ':'))
+            json.dump(dd, f, ensure_ascii=False, separators=(',', ':'))
         print('[ok] 写 %s.json (%.0f KB) charts=%d asOf=%s'
-              % (d['id'], os.path.getsize(p) / 1024, len(d['charts']), d['asOf']))
+              % (dd['id'], os.path.getsize(p) / 1024, len(dd['charts']), dd['asOf']))
 
-    # 内存里的下划线字段不能进 data.js
     clean_all = [{k: v for k, v in d.items() if not k.startswith('_')} for d in all_ds]
     with open(os.path.join(DATA, 'data.js'), 'w', encoding='utf-8') as f:
         f.write('// 自动生成，勿手改。build_lc_sched_charts.py @ ' + stamp + '\n')
@@ -458,38 +629,48 @@ def write_all(ds_list):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--check', action='store_true')
-    ap.add_argument('--src', default=SRC)
+    ap.add_argument('--zy', default=ZY_SRC)
+    ap.add_argument('--rd', default=RD_SRC)
     ap.add_argument('--pwd', default=PWD)
     args = ap.parse_args()
 
-    wb = open_workbook(args.src, args.pwd)
-    blocks = read_paichan(wb)
-    print('排产 环节块：', [(b['seg'], len(b['rows']), 'total' in b) for b in blocks])
-    for b in blocks:
-        if 'total' in b:
-            print('  合计[%s] 首月/末月：%s / %s'
-                  % (b['seg'], txt(b['total']['raw'][0])[:28], txt(b['total']['raw'][-1])[:28]))
+    zy = load_zy(args.zy)
+    ls = load_ls(args.zy)
+    rd = load_rd(args.rd, args.pwd)
 
-    ds1 = build_sched(blocks)
-    ds2 = build_sched_co(blocks)
+    print('则言月初：电池 %d 家 / 正极 %d 家 / 月份 %s~%s'
+          % (len(zy['bat']), len(zy['pos']), zy['months'][0], zy['months'][-1]))
+    print('则言锂盐：%d 家 / 月份 %s~%s' % (len(ls[0]), ls[1][0], ls[1][-1]))
+    print('readdata：碳酸锂 %d 行 / 材料 %d 行 / 月份 %s~%s'
+          % (len(rd['lc']), len(rd['mat']), rd['months'][0], rd['months'][-1]))
 
-    for ds in (ds1, ds2):
-        print('\n== %s(%s) | asOf %s | 图 %d'
-              % (ds['name'], ds['id'], ds['asOf'], len(ds['charts'])))
-        for c in ds['charts'][:6]:
-            nz = sum(1 for v in c['series'][-1]['data'] if v is not None)
-            print('   [%s] %s | 年=%s | 2026非空=%d'
-                  % (c['group'], c['title'], ','.join(s['name'] for s in c['series']), nz))
-        if len(ds['charts']) > 6:
-            print('   … 共 %d 张' % len(ds['charts']))
-        s = ds.get('summary')
-        if s:
-            for k in s['rowOrder']:
-                print('   %-8s %s' % (k, s['rows'][k]))
+    lc_rows = merge_lc(zy, ls, rd)
+
+    ds = [build_sched(zy, rd), build_bat(zy), build_pos(zy, rd),
+          build_lc(lc_rows, rd), build_mat(rd)]
+    for d in ds:
+        yrs = {s['name']: sum(1 for v in s['data'] if v is not None)
+               for s in d['charts'][0]['series']}
+        print('  %-14s %-12s 图 %2d | 首图各年非空 %s'
+              % (d['id'], d['name'], len(d['charts']), yrs))
+    if ds[0].get('summary'):
+        for k in ds[0]['summary']['rowOrder']:
+            print('   %-8s %s' % (k, ds[0]['summary']['rows'][k]))
+
+    # 自检：碳酸锂 2023 覆盖、正极 2024 覆盖
+    lc0 = ds[3]['charts'][0]['series']
+    print('   [自检] 碳酸锂首图年覆盖：',
+          {s['name']: sum(1 for v in s['data'] if v is not None) for s in lc0})
+    pos0 = ds[2]['charts'][0]['series']
+    print('   [自检] 正极首图年覆盖：',
+          {s['name']: sum(1 for v in s['data'] if v is not None) for s in pos0})
 
     if args.check:
+        for d in ds:
+            for c in d['charts']:
+                print('     [%s] %s | %s' % (c['group'], c['title'], c.get('sub') or ''))
         return
-    write_all([ds1, ds2])
+    write_all(ds)
 
 
 if __name__ == '__main__':

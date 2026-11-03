@@ -1,5 +1,5 @@
 {
- "updated": "2026-11-02T14:58:05",
+ "updated": "2026-11-03T09:48:56",
  "datasets": [
   {
    "id": "lc_inv",
@@ -56,9 +56,27 @@
    "asOf": "2026-11-01"
   },
   {
+   "id": "lc_sched_bat",
+   "name": "电池分企业",
+   "charts": 6,
+   "asOf": "2026-11-01"
+  },
+  {
+   "id": "lc_sched_pos",
+   "name": "正极分企业",
+   "charts": 17,
+   "asOf": "2026-11-01"
+  },
+  {
+   "id": "lc_sched_lc",
+   "name": "碳酸锂分企业",
+   "charts": 11,
+   "asOf": "2026-11-01"
+  },
+  {
    "id": "lc_sched_co",
-   "name": "分企业排产",
-   "charts": 43,
+   "name": "其他材料",
+   "charts": 9,
    "asOf": "2026-11-01"
   }
  ]
