@@ -31,6 +31,11 @@ import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PY = sys.executable
+# ⚠️ 发微信必须用带 pywin32 的解释器（系统 Python312 没装 win32clipboard/win32gui，
+#    直接用 PY 发会在 import 阶段崩）。构建/截图/推站仍用 PY（312，装了 openpyxl/PIL）。
+SEND_PY = r'C:\Users\Administrator\.workbuddy\binaries\python\versions\3.13.12.old.29464\python.exe'
+# 踩坑：send_to_wechat.py 的 print 含 emoji，GBK stdout 会 UnicodeEncodeError → 强制 utf-8
+SEND_ENV = dict(os.environ, PYTHONIOENCODING='utf-8')
 BUILD = os.path.join(ROOT, 'scripts', 'build_lc_inv_charts.py')
 BUILD2 = os.path.join(ROOT, 'scripts', 'build_lc_downstream_charts.py')
 BUILD3 = os.path.join(ROOT, 'scripts', 'build_lc_order_charts.py')
@@ -232,18 +237,18 @@ def main():
             for p in order_imgs:
                 if not os.path.exists(p):
                     raise SystemExit('订单长图不存在：%s' % p)
-                r = subprocess.run([PY, SEND, p, '--no-countdown'], cwd=ROOT)
+                r = subprocess.run([SEND_PY, SEND, p, '--no-countdown'], cwd=ROOT, env=SEND_ENV)
                 ok = ok and (r.returncode == 0)
         else:
             if not os.path.exists(IMG):
                 raise SystemExit('长图不存在：%s' % IMG)
-            r = subprocess.run([PY, SEND, IMG, '--no-countdown'], cwd=ROOT)
+            r = subprocess.run([SEND_PY, SEND, IMG, '--no-countdown'], cwd=ROOT, env=SEND_ENV)
             ok = (r.returncode == 0)
         if ok and args.downstream:
             for p in dn_imgs:
                 if not os.path.exists(p):
                     raise SystemExit('下游图不存在：%s' % p)
-                r2 = subprocess.run([PY, SEND, p, '--no-countdown'], cwd=ROOT)
+                r2 = subprocess.run([SEND_PY, SEND, p, '--no-countdown'], cwd=ROOT, env=SEND_ENV)
                 ok = ok and (r2.returncode == 0)
         if ok:
             st['sent_asOf'] = as_of

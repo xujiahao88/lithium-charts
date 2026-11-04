@@ -1,11 +1,11 @@
 {
- "updated": "2026-11-03T09:48:56",
+ "updated": "2026-11-04T14:48:01",
  "datasets": [
   {
    "id": "lc_inv",
    "name": "碳酸锂库存",
    "charts": 7,
-   "asOf": "2026-10-28"
+   "asOf": "2026-11-04"
   },
   {
    "id": "lc_output",
@@ -32,12 +32,6 @@
    "asOf": "2026-10-25"
   },
   {
-   "id": "lc_ore_ship",
-   "name": "全球锂矿发运",
-   "charts": 4,
-   "asOf": "2026-11-01"
-  },
-  {
    "id": "lc_chile_ship",
    "name": "智利锂盐发运",
    "charts": 4,
@@ -48,6 +42,12 @@
    "name": "锂精矿港口库存",
    "charts": 6,
    "asOf": "2026-10-30"
+  },
+  {
+   "id": "lc_ore_ship",
+   "name": "全球锂矿发运",
+   "charts": 4,
+   "asOf": "2026-11-01"
   },
   {
    "id": "lc_sched",
@@ -62,9 +62,9 @@
    "asOf": "2026-11-01"
   },
   {
-   "id": "lc_sched_pos",
-   "name": "正极分企业",
-   "charts": 17,
+   "id": "lc_sched_co",
+   "name": "其他材料",
+   "charts": 9,
    "asOf": "2026-11-01"
   },
   {
@@ -74,9 +74,9 @@
    "asOf": "2026-11-01"
   },
   {
-   "id": "lc_sched_co",
-   "name": "其他材料",
-   "charts": 9,
+   "id": "lc_sched_pos",
+   "name": "正极分企业",
+   "charts": 17,
    "asOf": "2026-11-01"
   }
  ]
