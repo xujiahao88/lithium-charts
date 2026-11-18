@@ -12,8 +12,10 @@ build_lc_sched_charts.py — 下游排产（则言）→ lithium-charts 五个�
        前驱体/电解液/负极（则言里只有文字备注没有数）、电池全样本合计
 
 合并规则
-  · 电池 / 正极：整段用则言（单一来源，不会出现拼接跳变；已核对 2024-10~2026-11 与
-    readdata 逐企业一致，仅 E/G 有 0.1~0.6 GWh 级修订）
+  · 电池 / 正极：历史整段用则言（单一来源，不会出现拼接跳变；已核对 2024-10~2026-11 与
+    readdata 逐企业一致，仅 E/G 有 0.1~0.6 GWh 级修订）；
+    **最新月由 readdata 覆盖**（2026-11-17 用户要求：月中修订版 readdata 的最新月
+    电池六家/正极逐企业/正极全样本合计覆盖则言同月，见 overlay_rd_latest）
   · 碳酸锂：2023-01~2024-09 取《锂盐》表，2024-10 起改用 readdata（两源在 2024-10 完全对齐，
     越往后越发散——2025-06 志存 4300 vs 1300，属不同复古版本，**只在 2024-10 这个接缝拼接**）
   · 前驱体 / 电解液 / 负极：仅 readdata（2024-10 起）
@@ -286,11 +288,15 @@ def load_rd(path, pwd):
         return sh.cell_value(r, 2 + i)
 
     lc, mat, bat_total, pos_extra = [], [], None, []
+    bat, pos, pos_total = [], [], None      # 2026-11-17：解析电池六家/正极/正极合计，供最新月覆盖
     for r in range(1, sh.nrows):
         label = txt(sh.cell_value(r, 1))
         note = txt(sh.cell_value(r, sh.ncols - 1))
         if '合计（GWH）' in label:
             bat_total = {'raw': {m: cell(r, i) for i, m in enumerate(months)}}
+            continue
+        if label in ('合计（万吨）',):       # 正极全样本合计（碳酸锂是「国内合计（万吨）」，不会命中）
+            pos_total = {'raw': {m: cell(r, i) for i, m in enumerate(months)}}
             continue
         if '万华' in label:
             row = {'code': label, 'note': note, 'vals': {}}
@@ -299,6 +305,24 @@ def load_rd(path, pwd):
                 if v is not None:
                     row['vals'][m] = v
             pos_extra.append(row)
+            continue
+        if '（GWH）' in label and '合计' not in label:   # 电池六家「x三元+y铁锂」
+            row = {'code': label, 'note': note, 'tri': {}, 'lfp': {}}
+            for i, m in enumerate(months):
+                a, b = parse_pair(cell(r, i))
+                if a is not None:
+                    row['tri'][m] = a
+                if b is not None:
+                    row['lfp'][m] = b
+            bat.append(row)
+            continue
+        if ('（LFP）' in label) or ('（NCM）' in label):  # 正极（全角括号；前驱体「(NCM)」半角不会撞）
+            row = {'code': label, 'note': note, 'vals': {}}
+            for i, m in enumerate(months):
+                v = clean(cell(r, i))
+                if v is not None:
+                    row['vals'][m] = v
+            pos.append(row)
             continue
         if ('（LC）' in label) or ('智利' in label):
             row = {'code': label, 'note': note, 'vals': {}}
@@ -319,8 +343,46 @@ def load_rd(path, pwd):
     order = ['前驱体', '前驱体', '前驱体', '前驱体', '电解液', '电解液', '电解液', '负极', '负极']
     for i, row in enumerate(mat):
         row['seg'] = order[i] if i < len(order) else '其他'
-    return {'lc': lc, 'mat': mat, 'bat_total': bat_total,
-            'pos_extra': pos_extra, 'months': months}
+    return {'lc': lc, 'mat': mat, 'bat_total': bat_total, 'pos_total': pos_total,
+            'pos_extra': pos_extra, 'bat': bat, 'pos': pos, 'months': months}
+
+
+def overlay_rd_latest(zy, rd):
+    """2026-11-17 起用户要求：readdata 最新月的电池六家/正极逐企业/正极全样本合计
+    **覆盖**则言同月值（月中修订进站点）。只覆盖最新一个月，历史月仍整段用则言
+    （保持既定「防接缝跳变」策略；月初两源本就对齐，覆盖通常只在月中版生效）。"""
+    lm = rd['months'][-1]
+    n = 0
+    rb = {r['code']: r for r in rd.get('bat') or []}
+    for row in zy['bat']:
+        hit = rb.get(row['code'])
+        if not hit:
+            continue
+        for f in ('tri', 'lfp'):
+            v = hit[f].get(lm)
+            if v is not None and row[f].get(lm) != v:
+                print('[overlay] 电池 %s %s %s: %s -> %s'
+                      % (row['code'], f, lm, row[f].get(lm), v))
+                row[f][lm] = v
+                n += 1
+    rp = {r['code']: r for r in (rd.get('pos') or []) + (rd.get('pos_extra') or [])}
+    for row in zy['pos'] + zy.get('pos_extra', []):
+        hit = rp.get(row['code'])
+        if not hit:
+            continue
+        v = hit['vals'].get(lm)
+        if v is not None and row['vals'].get(lm) != v:
+            print('[overlay] 正极 %s %s: %s -> %s'
+                  % (row['code'], lm, row['vals'].get(lm), v))
+            row['vals'][lm] = v
+            n += 1
+    if rd.get('pos_total') and rd['pos_total']['raw'].get(lm):
+        old, new = zy['pos_total']['raw'].get(lm), rd['pos_total']['raw'][lm]
+        if txt(old) != txt(new):
+            print('[overlay] 正极全样本合计 %s: %s -> %s' % (lm, txt(old), txt(new)))
+            zy['pos_total']['raw'][lm] = new
+            n += 1
+    print('[overlay] readdata 最新月 %s 覆盖完成，共 %d 处' % (lm, n))
 
 
 # ---------------------------------------------------------------- 合并
@@ -428,6 +490,7 @@ def build_sched(zy, rd):
 
     note = '｜'.join([
         '口径：则言排产（2026-11 月初版本，上下游综合评估的预测值），历史回溯至 2024-01',
+        '最新月（2026-11）已按 readdata 月中修订版覆盖电池六家与正极全样本（2026-11-17 起）',
         '电池按「头部六家」（C/B/E/G/Z/瑞浦兰钧）加总，与源表「合计」行（全样本，2026-11 铁锂 %s GWh）'
         '口径不同——图与表统一用六家，勿与全样本互换' % (rnd(all_lfp, 0) if all_lfp else '246'),
         '正极取源表「合计」行（全样本万吨），而分企业仅列 11 家铁锂（2026-11 合计 43.75 万吨），'
@@ -501,12 +564,24 @@ def build_pos(zy, rd):
             pos_group(name), yrs_series(vals, 0), 0, '吨',
             sub=sub, tbl=metric(cur, prev, 0)))
 
+    lm = (2026, 11)
+    lfp_listed = sum(r['vals'].get(lm, 0) for r in rows if '（LFP）' in r['code'])
+    full_lfp = None
+    if rd.get('pos_total') and rd['pos_total']['raw'].get(lm):
+        full_lfp = parse_pair(rd['pos_total']['raw'][lm])[1]      # [1]=铁锂
+    elif zy['pos_total'] and zy['pos_total']['raw'].get(lm):
+        full_lfp = parse_pair(zy['pos_total']['raw'][lm])[1]
+    fl = next((r for r in rows if '富临' in r['code']), None)
+    fl_note = ('「新增富临」11 月已按 readdata 月中版补报（%.1f 万吨），不再是断点'
+               % (fl['vals'][lm] / 10000) if fl and fl['vals'].get(lm) else
+               '「新增富临」11 月源表备注「未回复」、当月留空，图上是断点不是 0')
     note = '｜'.join([
         '口径：则言排产《锂电排产-则言月初》正极分企业，2024-01 ~ 2026-11（预测值，吨）',
+        '最新月（2026-11）已按 readdata 月中修订版覆盖（2026-11-17 起，含富临/C 补报）',
         '磷酸铁锂 11 家 + 三元 6 家；企业代号为源表自用字母，卡片副标题为源表「备注」原话',
-        '列示 11 家铁锂 2026-11 合计 43.75 万吨，源表「合计」行（全样本）为 62.41 万吨——'
-        '差额为未列名企业，勿把列示合计当全行业',
-        '「新增富临」11 月源表备注「未回复」、当月留空，图上是断点不是 0',
+        '列示 11 家铁锂 2026-11 合计 %.2f 万吨，源表「合计」行（全样本）为 %.2f 万吨——'
+        '差额为未列名企业，勿把列示合计当全行业' % (lfp_listed / 10000, full_lfp),
+        fl_note,
     ])
     return {'id': 'lc_sched_pos', 'name': '正极分企业',
             'axes': [[str(i + 1) for i in range(12)]], 'asOf': '2026-11-01',
@@ -537,7 +612,7 @@ def build_lc(rows, rd):
         'Z = 志存（含西海/原新疆志存），Y = 永兴特钢，H = 华友，S = 盛新，J = 九岭，L = 蓝科，'
         'T = 天齐，G = 赣锋，另有天宜（不含奉新时代）、中矿',
         '「智利出口中国」为智利发往中国的锂盐量，非国内产量，只作进口节奏参考，量级不可直接比',
-        '列示 10 家不等于全国：源表「国内合计」2026-11 为 12.18 万吨，列示企业合计明显更小',
+        '列示 10 家不等于全国：源表「国内合计」2026-11 为 12.24 万吨（readdata 月中版），列示企业合计明显更小',
     ])
     return {'id': 'lc_sched_lc', 'name': '碳酸锂分企业',
             'axes': [[str(i + 1) for i in range(12)]], 'asOf': '2026-11-01',
@@ -637,6 +712,7 @@ def main():
     zy = load_zy(args.zy)
     ls = load_ls(args.zy)
     rd = load_rd(args.rd, args.pwd)
+    overlay_rd_latest(zy, rd)
 
     print('则言月初：电池 %d 家 / 正极 %d 家 / 月份 %s~%s'
           % (len(zy['bat']), len(zy['pos']), zy['months'][0], zy['months'][-1]))
