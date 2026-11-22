@@ -20,7 +20,7 @@
   };
 
   // 各数据集「区块内一行几张图」（默认 5 张，见 style.css .grid.rgrid）
-  var GRID_COLS = { psi_plan: 3, daiguan: 3, chugang: 3, export_variety: 3, export_country: 3, mill_order: 3, biaowai: 3, variety_demand: 3, variety_inventory: 3, lc_inv: 4, lc_output: 3, lc_cathode: 2, lc_cell: 3, lc_order: 3, lc_ore_ship: 4, lc_chile_ship: 4, lc_ore_inv: 3, lc_sched: 2, lc_sched_bat: 3, lc_sched_pos: 3, lc_sched_lc: 4, lc_sched_co: 3, lc_lih_price: 3, lc_lih_capacity: 3, lc_lih_output: 3, lc_lih_inventory: 3, lc_lih_cost: 3 };
+  var GRID_COLS = { psi_plan: 3, daiguan: 3, chugang: 3, export_variety: 3, export_country: 3, mill_order: 3, biaowai: 3, variety_demand: 3, variety_inventory: 3, lc_inv: 4, lc_output: 3, lc_cathode: 2, lc_cell: 3, lc_order: 3, lc_ore_ship: 4, lc_chile_ship: 4, lc_ore_inv: 3, lc_sched: 2, lc_sched_bat: 3, lc_sched_pos: 3, lc_sched_lc: 4, lc_sched_co: 3, lc_lih_price: 3, lc_lih_capacity: 3, lc_lih_output: 3, lc_lih_inventory: 3, lc_lih_cost: 3, lc_lih_ratio: 2 };
 
   // 嵌入式数据集：本站（碳酸锂）暂无
   var EMBED_DATASETS = [];

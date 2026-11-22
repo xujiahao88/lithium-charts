@@ -497,6 +497,56 @@ def build_cost(ws):
                      '已随近五年（2022 年起）窗口过滤。')}
 
 
+def build_ratio(ws):
+    """电碳/电氢比价：源表 D=日期 E=电氢 F=电碳（同日配对），日频→周/月投影。"""
+    p = 'lc_lih_ratio'
+    di, ei, fi = 3, 4, 5
+    raw = {}
+    for r in ws.iter_rows(min_row=5, values_only=True):
+        d = to_date(r[di]) if di < len(r) else None
+        if d is None or d.year < 2022:
+            continue
+        e = num(r[ei]) if ei < len(r) else None
+        f = num(r[fi]) if fi < len(r) else None
+        if e in (None, 0) or f is None:
+            continue
+        raw[d] = f / e          # 电碳价 ÷ 电氢价
+
+    # 周度：按 ISO 周取周内最后一个交易日的比价
+    wk = {}
+    for d, v in raw.items():
+        k = iso_key(d)
+        if k not in wk or d > wk[k][0]:
+            wk[k] = (d, v)
+    wvals = {d: v for d, v in wk.values()}
+
+    # 月度：取月末最后一个交易日的比价
+    mo = {}
+    for d, v in raw.items():
+        k = (d.year, d.month)
+        if k not in mo or d > mo[k][0]:
+            mo[k] = (d, v)
+    mvals = {d: v for d, v in mo.values()}
+
+    charts = []
+    c = seasonal_chart(p + '-w', '电碳/电氢比价（周）', '电碳/电氢比价',
+                       wvals, 0, 3, 'week', WEEK_YEARS)
+    if c:
+        charts.append(c)
+    c = seasonal_chart(p + '-m', '电碳/电氢比价（月）', '电碳/电氢比价',
+                       mvals, 1, 3, 'month', WEEK_YEARS)
+    if c:
+        charts.append(c)
+
+    return {'id': p, 'name': '电氢电碳比价',
+            'axes': [WEEK_LABEL, MONTH_AXIS], 'axisTypes': ['week', 'month'],
+            'monthFirst': WEEK_FIRST,
+            'asOf': max(raw).strftime('%Y-%m-%d'), 'charts': charts,
+            'note': ('口径：电池级碳酸锂（电碳）平均价 ÷ 电池级氢氧化锂（电氢，粗颗粒）平均价，'
+                     '同日配对；日频数据按 ISO 周取周内最后一个交易日、月度取月末最后一个交易日投影。'
+                     '近五年 2022–2026。比值>1 表示电碳贵于电氢，<1 表示电氢贵于电碳。')}
+
+
 # ---------------------------------------------------------------- 写盘
 def write_all(ds_list):
     meta_path = os.path.join(DATA, 'meta.json')
@@ -555,7 +605,7 @@ def main():
         s = load(wb)
         ds_list = [build_price(s['price']), build_capacity(s['cap']),
                    build_output(s['out']), build_inventory(s['inv']),
-                   build_cost(s['cost'])]
+                   build_cost(s['cost']), build_ratio(s['price'])]
     finally:
         wb.close()
     for ds in ds_list:
