@@ -79,9 +79,11 @@ PUSH_FILES = [
     'data/lc_ore_ship.json', 'data/lc_chile_ship.json', 'data/lc_ore_inv.json',
     'data/lc_sched.json', 'data/lc_sched_bat.json', 'data/lc_sched_pos.json',
     'data/lc_sched_lc.json', 'data/lc_sched_co.json',
+    'data/lc_lih_price.json', 'data/lc_lih_capacity.json', 'data/lc_lih_output.json',
+    'data/lc_lih_inventory.json', 'data/lc_lih_cost.json',
     'scripts/build_lc_inv_charts.py', 'scripts/build_lc_downstream_charts.py',
     'scripts/build_lc_order_charts.py', 'scripts/build_lc_mine_charts.py',
-    'scripts/build_lc_sched_charts.py',
+    'scripts/build_lc_sched_charts.py', 'scripts/build_lc_lih_charts.py',
     'scripts/shot_lithium.py', 'scripts/stack_images.py',
     'scripts/run_lc_pipeline.py',
 ]
