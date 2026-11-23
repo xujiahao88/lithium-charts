@@ -579,13 +579,15 @@ def build_ratio(ws_price, ws_cost):
     px = read_daily_prices(ws_price)        # {date: (电氢, 电碳)}
     fees = read_monthly_fees(ws_cost)       # {月末: (苛化费, 碳化费)}
     fdates = sorted(fees)
-    first_fee = fees[fdates[0]]             # 最早实测（2023-12）用于向前外推
-
+    # 2026-11-23 用户改主意：不外推，只按加工费实测口径（2023-12 起，2024 年完整）算利润/利润率。
+    # 早于首个加工费日的时段不产出利润点，图上自然只有 2024–2026 三年。
     ratio, carb, caust, carm, caum = {}, {}, {}, {}, {}
     for d, (e, f) in px.items():
-        ratio[d] = f / e                    # 电碳 ÷ 电氢
+        ratio[d] = f / e                    # 电碳 ÷ 电氢（比价仍为五年）
         i = bisect.bisect_right(fdates, d) - 1
-        caust_fee, carb_fee = fees[fdates[i]] if i >= 0 else first_fee
+        if i < 0:
+            continue                        # 无加工费实测 → 利润/利润率留空
+        caust_fee, carb_fee = fees[fdates[i]]
         # 投入成本（按用户利润率口径：利润 ÷ 投入成本）
         cost_carb = f / 1.16 + carb_fee / 1.16
         cost_caust = e / 0.9 + caust_fee / 0.9
@@ -619,8 +621,8 @@ def build_ratio(ws_price, ws_cost):
                      '利润率按「利润 ÷ 投入成本」：碳化 = 利润/(电碳/1.16+碳化费/1.16)，'
                      '苛化 = 利润/(电氢/0.9+苛化费/0.9)，图中数值已 ×100 显示为 %。'
                      '加工费为月频、按最近一期前推到日度；源表自 2023-12 起，'
-                     '2022-01 至 2023-11 按最早实测值（苛化 11000 / 碳化 9000）常数外推，'
-                     '为代理值而非源表实测，仅供趋势参考；11 月沿用 10 月值。')}
+                     '故利润/利润率图仅覆盖有加工费实测的 2024–2026 三年（不做外推），'
+                     '2026-11 沿用 10 月加工费。比价图保留 2022–2026 五年。')}
 
 
 # ---------------------------------------------------------------- 写盘
