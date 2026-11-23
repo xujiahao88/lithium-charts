@@ -574,21 +574,25 @@ def daily_chart(key, title, group, vals, nd, years):
 
 
 def build_ratio(ws_price, ws_cost):
-    """日度比价 + 碳化利润 + 苛化利润（用户公式），全部日度季节图。"""
+    """日度比价 + 碳化/苛化利润 + 利润率（用户公式），全部日度季节图。"""
     p = 'lc_lih_ratio'
     px = read_daily_prices(ws_price)        # {date: (电氢, 电碳)}
     fees = read_monthly_fees(ws_cost)       # {月末: (苛化费, 碳化费)}
     fdates = sorted(fees)
+    first_fee = fees[fdates[0]]             # 最早实测（2023-12）用于向前外推
 
-    ratio, carb, caust = {}, {}, {}
+    ratio, carb, caust, carm, caum = {}, {}, {}, {}, {}
     for d, (e, f) in px.items():
         ratio[d] = f / e                    # 电碳 ÷ 电氢
         i = bisect.bisect_right(fdates, d) - 1
-        if i < 0:
-            continue
-        caust_fee, carb_fee = fees[fdates[i]]   # 月度加工费 asof 前推到日度
+        caust_fee, carb_fee = fees[fdates[i]] if i >= 0 else first_fee
+        # 投入成本（按用户利润率口径：利润 ÷ 投入成本）
+        cost_carb = f / 1.16 + carb_fee / 1.16
+        cost_caust = e / 0.9 + caust_fee / 0.9
         carb[d] = f / 1.16 - carb_fee / 1.16 - e
         caust[d] = e / 0.9 - caust_fee / 0.9 - f
+        carm[d] = (carb[d] / cost_carb * 100) if cost_carb else None      # ×100 显示为 %
+        caum[d] = (caust[d] / cost_caust * 100) if cost_caust else None
 
     charts = [
         daily_chart(p + '-ratio', '电碳/电氢比价（日）', '电碳/电氢比价',
@@ -597,6 +601,10 @@ def build_ratio(ws_price, ws_cost):
                     carb, 0, WEEK_YEARS),
         daily_chart(p + '-caust', '苛化利润（日，元/吨碳酸锂）', '碳化利润 / 苛化利润',
                     caust, 0, WEEK_YEARS),
+        daily_chart(p + '-carm', '碳化利润率（日，%）', '碳化利润率 / 苛化利润率',
+                    carm, 2, WEEK_YEARS),
+        daily_chart(p + '-caum', '苛化利润率（日，%）', '碳化利润率 / 苛化利润率',
+                    caum, 2, WEEK_YEARS),
     ]
     charts = [c for c in charts if c]
 
@@ -605,12 +613,14 @@ def build_ratio(ws_price, ws_cost):
             'dateTicks': DAY_TICKS, 'monthFirst': [],
             'asOf': max(px).strftime('%Y-%m-%d'), 'charts': charts,
             'note': ('日度数据，近五年 2022–2026，按 月-日 对齐叠加。'
-                     '比价 = 电碳价 ÷ 电氢价（>1 电碳贵，<1 电氢贵）。'
+                     '比价 = 电碳价 ÷ 电氢价。'
                      '碳化利润（元/吨氢氧化锂）= 电碳价/1.16 − 碳化加工费/1.16 − 电氢价；'
                      '苛化利润（元/吨碳酸锂）= 电氢价/0.9 − 苛化加工费/0.9 − 电碳价。'
-                     '碳化/苛化加工费为月频，按已公布最近一期前推到日度；'
-                     '加工费源表自 2023-12 起、最新至 2026-10-31，故两张利润图从 2024 年开始，'
-                     '11 月沿用 10 月加工费。')}
+                     '利润率按「利润 ÷ 投入成本」：碳化 = 利润/(电碳/1.16+碳化费/1.16)，'
+                     '苛化 = 利润/(电氢/0.9+苛化费/0.9)，图中数值已 ×100 显示为 %。'
+                     '加工费为月频、按最近一期前推到日度；源表自 2023-12 起，'
+                     '2022-01 至 2023-11 按最早实测值（苛化 11000 / 碳化 9000）常数外推，'
+                     '为代理值而非源表实测，仅供趋势参考；11 月沿用 10 月值。')}
 
 
 # ---------------------------------------------------------------- 写盘
