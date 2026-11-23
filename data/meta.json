@@ -1,5 +1,5 @@
 {
- "updated": "2026-11-22T23:41:30",
+ "updated": "2026-11-23T14:04:09",
  "datasets": [
   {
    "id": "lc_inv",
@@ -112,7 +112,7 @@
   {
    "id": "lc_lih_ratio",
    "name": "电氢电碳比价",
-   "charts": 2,
+   "charts": 3,
    "asOf": "2026-11-18"
   }
  ]

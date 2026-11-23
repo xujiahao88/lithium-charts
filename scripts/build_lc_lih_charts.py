@@ -18,6 +18,7 @@ import io
 import sys
 import json
 import argparse
+import bisect
 import datetime
 
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
@@ -143,6 +144,17 @@ def yoy_date(vals, last, period):
         cand = [d for d in vals if iso_key(d) == (iy - 1, iw)]
     elif period == 'month':
         cand = [d for d in vals if d.year == last.year - 1 and d.month == last.month]
+    elif period == 'day':
+        # 去年同月日（±5 天内取最近交易日，避开周末/春节错位）
+        try:
+            target = last.replace(year=last.year - 1)
+        except ValueError:
+            target = last.replace(year=last.year - 1, day=28)
+        cand = [d for d in vals if d.year == last.year - 1
+                and abs((d - target).days) <= 5]
+        if cand:
+            return min(cand, key=lambda d: abs((d - target).days))
+        return None
     else:
         cand = []
     return max(cand) if cand else None
@@ -160,7 +172,7 @@ def card_table(vals, nd, period='week', with_yoy=True):
     labels = ['本期', '上期', '环比']
     kinds = ['val', 'val', 'delta']
     values = [rnd(cur, nd), rnd(prv, nd), rnd(cur - prv, nd)]
-    if with_yoy and period in ('week', 'month'):
+    if with_yoy and period in ('week', 'month', 'day'):
         y = yoy_date(vals, last, period)
         yv = vals.get(y) if y else None
         labels.append('同比')
@@ -183,6 +195,13 @@ for d in WEEK_AXIS:
         WEEK_FIRST.append(d.strftime('%m-%d'))
 
 MONTH_AXIS = [str(i) for i in range(1, 13)]
+
+# 日度季节轴：365 槽（基准年 2026 非闰年），每月 1 号打刻度
+DAY_AXIS = [datetime.date(BASE_YEAR, 1, 1) + datetime.timedelta(days=i)
+            for i in range(365)]
+DAY_LABEL = [d.strftime('%Y-%m-%d') for d in DAY_AXIS]
+DAY_POS = {d.strftime('%m-%d'): i for i, d in enumerate(DAY_AXIS)}
+DAY_TICKS = [i for i, d in enumerate(DAY_AXIS) if d.day == 1]
 
 
 def week_seasonal(vals, years):
@@ -497,54 +516,101 @@ def build_cost(ws):
                      '已随近五年（2022 年起）窗口过滤。')}
 
 
-def build_ratio(ws):
-    """电碳/电氢比价：源表 D=日期 E=电氢 F=电碳（同日配对），日频→周/月投影。"""
-    p = 'lc_lih_ratio'
-    di, ei, fi = 3, 4, 5
-    raw = {}
+def read_daily_prices(ws):
+    """价格表 D=日期 E=电氢 F=电碳（同日配对）→ {date:(电氢, 电碳)}"""
+    out = {}
     for r in ws.iter_rows(min_row=5, values_only=True):
-        d = to_date(r[di]) if di < len(r) else None
+        d = to_date(r[3]) if len(r) > 5 else None
         if d is None or d.year < 2022:
             continue
-        e = num(r[ei]) if ei < len(r) else None
-        f = num(r[fi]) if fi < len(r) else None
-        if e in (None, 0) or f is None:
+        e, f = num(r[4]), num(r[5])
+        if e is None or f is None:
             continue
-        raw[d] = f / e          # 电碳价 ÷ 电氢价
+        if d not in out:            # 源表倒序，保留首次出现的较晚记录
+            out[d] = (e, f)
+    return out
 
-    # 周度：按 ISO 周取周内最后一个交易日的比价
-    wk = {}
-    for d, v in raw.items():
-        k = iso_key(d)
-        if k not in wk or d > wk[k][0]:
-            wk[k] = (d, v)
-    wvals = {d: v for d, v in wk.values()}
 
-    # 月度：取月末最后一个交易日的比价
-    mo = {}
-    for d, v in raw.items():
-        k = (d.year, d.month)
-        if k not in mo or d > mo[k][0]:
-            mo[k] = (d, v)
-    mvals = {d: v for d, v in mo.values()}
+def read_monthly_fees(ws):
+    """成本利润表 J=月末日期 L=苛化加工费 M=碳化加工费 → {date:(苛化费, 碳化费)}"""
+    out = {}
+    for r in ws.iter_rows(min_row=5, values_only=True):
+        d = to_date(r[9]) if len(r) > 12 else None
+        if d is None or d.year < 2021:
+            continue
+        l, m = num(r[11]), num(r[12])
+        if l is None or m is None:
+            continue
+        out[d] = (l, m)
+    return out
 
-    charts = []
-    c = seasonal_chart(p + '-w', '电碳/电氢比价（周）', '电碳/电氢比价',
-                       wvals, 0, 3, 'week', WEEK_YEARS)
-    if c:
-        charts.append(c)
-    c = seasonal_chart(p + '-m', '电碳/电氢比价（月）', '电碳/电氢比价',
-                       mvals, 1, 3, 'month', WEEK_YEARS)
-    if c:
-        charts.append(c)
+
+def daily_chart(key, title, group, vals, nd, years):
+    """日度季节图：交易日按 月-日 投影到基准年 365 槽，多年度叠加。"""
+    byyear = {}
+    for d, v in vals.items():
+        if d.year not in years:
+            continue
+        md = d.strftime('%m-%d')
+        if md not in DAY_POS:       # 闰年 02-29 在基准年无槽，跳过
+            continue
+        byyear.setdefault(d.year, {})[md] = v
+    present = [y for y in years if y in byyear and
+               (y == BASE_YEAR or len(byyear[y]) >= 20)]
+    if not present:
+        return None
+    n = len(years)
+    ser = []
+    for y in present:
+        st = series_style(years.index(y), n)
+        row = [None] * len(DAY_AXIS)
+        for md, v in byyear[y].items():
+            row[DAY_POS[md]] = rnd(v, nd)
+        ser.append({'name': str(y), 'color': st['color'], 'width': st['width'],
+                    'dash': st['dash'], 'marker': st['marker'], 'data': row})
+    return {'key': key, 'title': title, 'type': 'line', 'axis': 0,
+            'group': group, 'series': ser, 'fmt': 'v', 'nd': nd,
+            'table': card_table(vals, nd, 'day')}
+
+
+def build_ratio(ws_price, ws_cost):
+    """日度比价 + 碳化利润 + 苛化利润（用户公式），全部日度季节图。"""
+    p = 'lc_lih_ratio'
+    px = read_daily_prices(ws_price)        # {date: (电氢, 电碳)}
+    fees = read_monthly_fees(ws_cost)       # {月末: (苛化费, 碳化费)}
+    fdates = sorted(fees)
+
+    ratio, carb, caust = {}, {}, {}
+    for d, (e, f) in px.items():
+        ratio[d] = f / e                    # 电碳 ÷ 电氢
+        i = bisect.bisect_right(fdates, d) - 1
+        if i < 0:
+            continue
+        caust_fee, carb_fee = fees[fdates[i]]   # 月度加工费 asof 前推到日度
+        carb[d] = f / 1.16 - carb_fee / 1.16 - e
+        caust[d] = e / 0.9 - caust_fee / 0.9 - f
+
+    charts = [
+        daily_chart(p + '-ratio', '电碳/电氢比价（日）', '电碳/电氢比价',
+                    ratio, 3, WEEK_YEARS),
+        daily_chart(p + '-carb', '碳化利润（日，元/吨氢氧化锂）', '碳化利润 / 苛化利润',
+                    carb, 0, WEEK_YEARS),
+        daily_chart(p + '-caust', '苛化利润（日，元/吨碳酸锂）', '碳化利润 / 苛化利润',
+                    caust, 0, WEEK_YEARS),
+    ]
+    charts = [c for c in charts if c]
 
     return {'id': p, 'name': '电氢电碳比价',
-            'axes': [WEEK_LABEL, MONTH_AXIS], 'axisTypes': ['week', 'month'],
-            'monthFirst': WEEK_FIRST,
-            'asOf': max(raw).strftime('%Y-%m-%d'), 'charts': charts,
-            'note': ('口径：电池级碳酸锂（电碳）平均价 ÷ 电池级氢氧化锂（电氢，粗颗粒）平均价，'
-                     '同日配对；日频数据按 ISO 周取周内最后一个交易日、月度取月末最后一个交易日投影。'
-                     '近五年 2022–2026。比值>1 表示电碳贵于电氢，<1 表示电氢贵于电碳。')}
+            'axes': [DAY_LABEL], 'axisType': 'date', 'axisTypes': ['date'],
+            'dateTicks': DAY_TICKS, 'monthFirst': [],
+            'asOf': max(px).strftime('%Y-%m-%d'), 'charts': charts,
+            'note': ('日度数据，近五年 2022–2026，按 月-日 对齐叠加。'
+                     '比价 = 电碳价 ÷ 电氢价（>1 电碳贵，<1 电氢贵）。'
+                     '碳化利润（元/吨氢氧化锂）= 电碳价/1.16 − 碳化加工费/1.16 − 电氢价；'
+                     '苛化利润（元/吨碳酸锂）= 电氢价/0.9 − 苛化加工费/0.9 − 电碳价。'
+                     '碳化/苛化加工费为月频，按已公布最近一期前推到日度；'
+                     '加工费源表自 2023-12 起、最新至 2026-10-31，故两张利润图从 2024 年开始，'
+                     '11 月沿用 10 月加工费。')}
 
 
 # ---------------------------------------------------------------- 写盘
@@ -605,7 +671,7 @@ def main():
         s = load(wb)
         ds_list = [build_price(s['price']), build_capacity(s['cap']),
                    build_output(s['out']), build_inventory(s['inv']),
-                   build_cost(s['cost']), build_ratio(s['price'])]
+                   build_cost(s['cost']), build_ratio(s['price'], s['cost'])]
     finally:
         wb.close()
     for ds in ds_list:
