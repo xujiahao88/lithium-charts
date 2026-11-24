@@ -229,8 +229,9 @@
       yAxis: {
         type: 'value',
         scale: !S.opt.zero,
-        min: yRange ? yRange.min : null,
-        max: yRange ? yRange.max : null,
+        // 图表自带 chart.yRange（如电碳/电氢比价固定 0.9–1.3）优先于同步 Y 轴传入的范围
+        min: (chart.yRange ? chart.yRange.min : (yRange ? yRange.min : null)),
+        max: (chart.yRange ? chart.yRange.max : (yRange ? yRange.max : null)),
         splitLine: { lineStyle: { color: '#eef1f6' } },
         axisLine: { show: false },
         axisTick: { show: false },
@@ -604,6 +605,7 @@
       var pad = (mx - mn) * 0.06 || 1;
       var r = { min: S.opt.zero ? 0 : Math.max(0, mn - pad), max: mx + pad };
       list.forEach(function (it) {
+        if (it.chart && it.chart.yRange) return;  // 固定纵轴范围的图不参与同步
         it.inst.setOption({ yAxis: { min: r.min, max: r.max } });
       });
     });
@@ -825,7 +827,7 @@
       refreshAll();
       if (!this.checked) {
         S.items.forEach(function (it) {
-          if (it.inst) it.inst.setOption({ yAxis: { min: null, max: null } });
+          if (it.inst && !(it.chart && it.chart.yRange)) it.inst.setOption({ yAxis: { min: null, max: null } });
         });
       }
     };

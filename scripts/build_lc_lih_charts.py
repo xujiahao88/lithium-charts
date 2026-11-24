@@ -545,8 +545,9 @@ def read_monthly_fees(ws):
     return out
 
 
-def daily_chart(key, title, group, vals, nd, years):
-    """日度季节图：交易日按 月-日 投影到基准年 365 槽，多年度叠加。"""
+def daily_chart(key, title, group, vals, nd, years, y_range=None):
+    """日度季节图：交易日按 月-日 投影到基准年 365 槽，多年度叠加。
+    y_range=(min,max) 时固定纵轴范围（前端 chart.yRange 读取）。"""
     byyear = {}
     for d, v in vals.items():
         if d.year not in years:
@@ -568,9 +569,12 @@ def daily_chart(key, title, group, vals, nd, years):
             row[DAY_POS[md]] = rnd(v, nd)
         ser.append({'name': str(y), 'color': st['color'], 'width': st['width'],
                     'dash': st['dash'], 'marker': st['marker'], 'data': row})
-    return {'key': key, 'title': title, 'type': 'line', 'axis': 0,
-            'group': group, 'series': ser, 'fmt': 'v', 'nd': nd,
-            'table': card_table(vals, nd, 'day')}
+    out = {'key': key, 'title': title, 'type': 'line', 'axis': 0,
+           'group': group, 'series': ser, 'fmt': 'v', 'nd': nd,
+           'table': card_table(vals, nd, 'day')}
+    if y_range:
+        out['yRange'] = {'min': y_range[0], 'max': y_range[1]}
+    return out
 
 
 def build_ratio(ws_price, ws_cost):
@@ -598,7 +602,7 @@ def build_ratio(ws_price, ws_cost):
 
     charts = [
         daily_chart(p + '-ratio', '电碳/电氢比价（日）', '电碳/电氢比价',
-                    ratio, 3, WEEK_YEARS),
+                    ratio, 3, WEEK_YEARS, y_range=(0.9, 1.3)),
         daily_chart(p + '-carb', '碳化利润（日，元/吨氢氧化锂）', '碳化利润 / 苛化利润',
                     carb, 0, WEEK_YEARS),
         daily_chart(p + '-caust', '苛化利润（日，元/吨碳酸锂）', '碳化利润 / 苛化利润',
