@@ -1,11 +1,11 @@
 {
- "updated": "2026-11-25T14:42:30",
+ "updated": "2026-11-25T14:48:05",
  "datasets": [
   {
    "id": "lc_inv",
    "name": "碳酸锂库存",
    "charts": 7,
-   "asOf": "2026-11-18"
+   "asOf": "2026-11-25"
   },
   {
    "id": "lc_output",
@@ -36,6 +36,42 @@
    "name": "智利锂盐发运",
    "charts": 4,
    "asOf": "2026-11-01"
+  },
+  {
+   "id": "lc_lih_capacity",
+   "name": "氢氧化锂产能",
+   "charts": 8,
+   "asOf": "2026-10-31"
+  },
+  {
+   "id": "lc_lih_cost",
+   "name": "氢氧化锂成本利润",
+   "charts": 10,
+   "asOf": "2026-11-17"
+  },
+  {
+   "id": "lc_lih_inventory",
+   "name": "氢氧化锂库存",
+   "charts": 7,
+   "asOf": "2026-11-12"
+  },
+  {
+   "id": "lc_lih_output",
+   "name": "氢氧化锂产量",
+   "charts": 14,
+   "asOf": "2026-11-12"
+  },
+  {
+   "id": "lc_lih_price",
+   "name": "氢氧化锂价格",
+   "charts": 6,
+   "asOf": "2026-11-20"
+  },
+  {
+   "id": "lc_lih_ratio",
+   "name": "电氢电碳比价",
+   "charts": 6,
+   "asOf": "2026-11-18"
   },
   {
    "id": "lc_ore_inv",
@@ -78,42 +114,6 @@
    "name": "正极分企业",
    "charts": 17,
    "asOf": "2026-11-01"
-  },
-  {
-   "id": "lc_lih_price",
-   "name": "氢氧化锂价格",
-   "charts": 6,
-   "asOf": "2026-11-20"
-  },
-  {
-   "id": "lc_lih_capacity",
-   "name": "氢氧化锂产能",
-   "charts": 8,
-   "asOf": "2026-10-31"
-  },
-  {
-   "id": "lc_lih_output",
-   "name": "氢氧化锂产量",
-   "charts": 14,
-   "asOf": "2026-11-12"
-  },
-  {
-   "id": "lc_lih_inventory",
-   "name": "氢氧化锂库存",
-   "charts": 7,
-   "asOf": "2026-11-12"
-  },
-  {
-   "id": "lc_lih_cost",
-   "name": "氢氧化锂成本利润",
-   "charts": 10,
-   "asOf": "2026-11-17"
-  },
-  {
-   "id": "lc_lih_ratio",
-   "name": "电氢电碳比价",
-   "charts": 6,
-   "asOf": "2026-11-18"
   }
  ]
 }
