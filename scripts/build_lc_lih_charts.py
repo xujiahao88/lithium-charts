@@ -585,9 +585,10 @@ def build_ratio(ws_price, ws_cost):
     fdates = sorted(fees)
     # 2026-11-23 用户改主意：不外推，只按加工费实测口径（2023-12 起，2024 年完整）算利润/利润率。
     # 早于首个加工费日的时段不产出利润点，图上自然只有 2024–2026 三年。
-    ratio, carb, caust, carm, caum = {}, {}, {}, {}, {}
+    ratio, spread, carb, caust, carm, caum = {}, {}, {}, {}, {}, {}
     for d, (e, f) in px.items():
         ratio[d] = f / e                    # 电碳 ÷ 电氢（比价仍为五年）
+        spread[d] = f - 1.136 * e           # 碳酸锂 − 1.136×氢氧化锂（系数按用户指定，勿改）
         i = bisect.bisect_right(fdates, d) - 1
         if i < 0:
             continue                        # 无加工费实测 → 利润/利润率留空
@@ -603,6 +604,8 @@ def build_ratio(ws_price, ws_cost):
     charts = [
         daily_chart(p + '-ratio', '电碳/电氢比价（日）', '电碳/电氢比价',
                     ratio, 3, WEEK_YEARS, y_range=(0.9, 1.3)),
+        daily_chart(p + '-spread', '碳酸锂 − 1.136×氢氧化锂价格（日，元/吨）', '电碳/电氢比价',
+                    spread, 0, WEEK_YEARS),
         daily_chart(p + '-carb', '碳化利润（日，元/吨氢氧化锂）', '碳化利润 / 苛化利润',
                     carb, 0, WEEK_YEARS),
         daily_chart(p + '-caust', '苛化利润（日，元/吨碳酸锂）', '碳化利润 / 苛化利润',
@@ -619,7 +622,7 @@ def build_ratio(ws_price, ws_cost):
             'dateTicks': DAY_TICKS, 'monthFirst': [],
             'asOf': max(px).strftime('%Y-%m-%d'), 'charts': charts,
             'note': ('日度数据，近五年 2022–2026，按 月-日 对齐叠加。'
-                     '比价 = 电碳价 ÷ 电氢价。'
+                     '比价 = 电碳价 ÷ 电氢价；碳酸锂 − 1.136×氢氧化锂价格 = 电碳价 − 1.136 × 电氢价（系数按用户指定）。'
                      '碳化利润（元/吨氢氧化锂）= 电碳价/1.16 − 碳化加工费/1.16 − 电氢价；'
                      '苛化利润（元/吨碳酸锂）= 电氢价/0.9 − 苛化加工费/0.9 − 电碳价。'
                      '利润率按「利润 ÷ 投入成本」：碳化 = 利润/(电碳/1.16+碳化费/1.16)，'
