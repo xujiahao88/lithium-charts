@@ -605,7 +605,7 @@ def build_ratio(ws_price, ws_cost):
         daily_chart(p + '-ratio', '电碳/电氢比价（日）', '电碳/电氢比价',
                     ratio, 3, WEEK_YEARS, y_range=(0.9, 1.3)),
         daily_chart(p + '-spread', '碳酸锂 − 1.136×氢氧化锂价格（日，元/吨）', '电碳/电氢比价',
-                    spread, 0, WEEK_YEARS),
+                    spread, 0, WEEK_YEARS, y_range=(-20000, 10000)),
         daily_chart(p + '-carb', '碳化利润（日，元/吨氢氧化锂）', '碳化利润 / 苛化利润',
                     carb, 0, WEEK_YEARS),
         daily_chart(p + '-caust', '苛化利润（日，元/吨碳酸锂）', '碳化利润 / 苛化利润',
